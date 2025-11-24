@@ -3,6 +3,12 @@ from modules.auth import autenticar_usuario, mostrar_login
 from modules.database import inicializar_bd
 from modules.grupos import modulo_conformacion_grupo
 from modules.socios import modulo_afiliacion_socios
+from modules.reuniones import modulo_reuniones
+from modules.ahorros import modulo_ahorros
+from modules.caja import modulo_caja
+from modules.prestamos import modulo_prestamos
+from modules.pagos import modulo_pagos
+from modules.moras import modulo_moras
 from utils.helpers import mostrar_dashboard_principal
 
 def main():
@@ -22,7 +28,7 @@ def main():
         st.session_state.autenticado = False
         st.session_state.rol = None
         st.session_state.usuario = None
-        st.session_state.id_grupo = None  # Para directiva
+        st.session_state.id_grupo = None
     
     # Mostrar login o aplicación principal
     if not st.session_state.autenticado:
@@ -49,6 +55,12 @@ def mostrar_aplicacion_principal():
             "📊 Dashboard", 
             "🏢 Conformación del Grupo", 
             "👥 Gestión de Socios",
+            "📅 Reuniones y Asistencia",
+            "💰 Aportes de Ahorro",
+            "💳 Gestión de Caja",
+            "🏦 Solicitud de Préstamos",    # NUEVO
+            "💵 Registro de Pagos",         # NUEVO
+            "⚠️ Control de Moras",          # NUEVO
             "⚙️ Configuración"
         ]
     elif st.session_state.rol == "PROMOTORA":
@@ -84,6 +96,18 @@ def mostrar_aplicacion_principal():
         modulo_conformacion_grupo()
     elif "Socios" in seleccion:
         modulo_afiliacion_socios()
+    elif seleccion == "📅 Reuniones y Asistencia":
+        modulo_reuniones()
+    elif seleccion == "💰 Aportes de Ahorro":
+        modulo_ahorros()
+    elif seleccion == "💳 Gestión de Caja":
+        modulo_caja()
+    elif seleccion == "🏦 Solicitud de Préstamos":
+        modulo_prestamos()
+    elif seleccion == "💵 Registro de Pagos":
+        modulo_pagos()
+    elif seleccion == "⚠️ Control de Moras":
+        modulo_moras()
     elif "Configuración" in seleccion:
         st.info("Módulo de configuración - En desarrollo")
 
