@@ -118,6 +118,13 @@ def exportar_csv_completo(datos):
                 key=f"csv_{nombre}"
             )
 
+def generar_pdf_acta(tipo_acta, datos):
+    """Función unificada para generar PDF de actas (placeholder)"""
+    st.info(f"🔧 Generando PDF para acta de {tipo_acta}...")
+    # En una implementación real, aquí se generaría el PDF según el tipo de acta
+    # Por ahora, devolvemos un mensaje de que no está implementado
+    return None
+
 def exportar_json_completo(datos):
     """Exportar datos a JSON"""
     import json
