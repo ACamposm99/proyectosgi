@@ -15,7 +15,7 @@ def generar_comprobante_ahorro(id_socio, id_sesion):
         JOIN ahorro a ON ad.id_ahorro = a.id_ahorro
         JOIN sesion se ON a.id_sesion = se.id_sesion
         JOIN grupos g ON se.id_grupo = g.id_grupo
-        WHERE ad.id_socio = %s AND a.id_sesion = %s
+        WHERE ad.id_socio = %s AND ad.id_ahorro IN (SELECT id_ahorro FROM ahorro WHERE id_sesion = %s)
     """
     
     datos = ejecutar_consulta(query, (id_socio, id_sesion))
@@ -45,9 +45,8 @@ def generar_comprobante_ahorro(id_socio, id_sesion):
     </div>
     """, unsafe_allow_html=True)
     
-    # Botón para descargar PDF (funcionalidad futura)
-    if st.button("📄 Generar PDF"):
-        st.info("🔧 Funcionalidad de PDF en desarrollo")
+    # Botón para imprimir o descargar
+    # En una implementación real, podríamos generar un PDF aquí
 
 def generar_reporte_asistencia(id_sesion):
     """Generar reporte de asistencia para una reunión"""
@@ -64,5 +63,9 @@ def generar_reporte_asistencia(id_sesion):
     datos = ejecutar_consulta(query, (id_sesion,))
     
     if datos:
-        # Información de la sesión
-        sesion_info = ejecutar_consulta(
+        st.markdown("### 📊 Reporte de Asistencia")
+        
+        for dato in datos:
+            st.write(f"- **{dato['nombre']} {dato['apellido']}**: {dato['estado']}")
+    else:
+        st.info("ℹ️ No hay datos de asistencia para esta reunión")
