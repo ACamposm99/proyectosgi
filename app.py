@@ -9,6 +9,8 @@ from modules.caja import modulo_caja
 from modules.prestamos import modulo_prestamos
 from modules.pagos import modulo_pagos
 from modules.moras import modulo_moras
+from modules.cierre_ciclo import modulo_cierre_ciclo  # NUEVO
+from modules.reportes import modulo_reportes  # NUEVO
 from utils.helpers import mostrar_dashboard_principal
 
 def main():
@@ -58,9 +60,11 @@ def mostrar_aplicacion_principal():
             "📅 Reuniones y Asistencia",
             "💰 Aportes de Ahorro",
             "💳 Gestión de Caja",
-            "🏦 Solicitud de Préstamos",    # NUEVO
-            "💵 Registro de Pagos",         # NUEVO
-            "⚠️ Control de Moras",          # NUEVO
+            "🏦 Solicitud de Préstamos",
+            "💵 Registro de Pagos",
+            "⚠️ Control de Moras",
+            "🔚 Cierre de Ciclo",  # NUEVO
+            "📈 Reportes y Actas", # NUEVO
             "⚙️ Configuración"
         ]
     elif st.session_state.rol == "PROMOTORA":
@@ -77,6 +81,7 @@ def mostrar_aplicacion_principal():
             "👥 Gestión de Socios",
             "🌐 Gestión de Distritos",
             "👤 Gestión de Promotores",
+            "📊 Reportes Generales",  # NUEVO
             "⚙️ Configuración del Sistema"
         ]
     
@@ -108,6 +113,10 @@ def mostrar_aplicacion_principal():
         modulo_pagos()
     elif seleccion == "⚠️ Control de Moras":
         modulo_moras()
+    elif seleccion == "🔚 Cierre de Ciclo":
+        modulo_cierre_ciclo()
+    elif "Reportes" in seleccion:
+        modulo_reportes()
     elif "Configuración" in seleccion:
         st.info("Módulo de configuración - En desarrollo")
 
