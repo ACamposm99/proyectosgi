@@ -10,7 +10,8 @@ from modules.prestamos import modulo_prestamos
 from modules.pagos import modulo_pagos
 from modules.moras import modulo_moras
 from modules.cierre_ciclo import modulo_cierre_ciclo  # NUEVO
-from modules.reportes import modulo_reportes  # NUEVO
+from modules.reportes import modulo_reportes          # NUEVO
+from modules.actas import modulo_actas                # NUEVO
 from utils.helpers import mostrar_dashboard_principal
 
 def main():
@@ -63,8 +64,9 @@ def mostrar_aplicacion_principal():
             "🏦 Solicitud de Préstamos",
             "💵 Registro de Pagos",
             "⚠️ Control de Moras",
-            "🔚 Cierre de Ciclo",  # NUEVO
-            "📈 Reportes y Actas", # NUEVO
+            "🔚 Cierre de Ciclo",        # NUEVO
+            "📈 Reportes Ejecutivos",    # NUEVO
+            "📄 Actas y Documentos",     # NUEVO
             "⚙️ Configuración"
         ]
     elif st.session_state.rol == "PROMOTORA":
@@ -72,7 +74,8 @@ def mostrar_aplicacion_principal():
             "📊 Dashboard", 
             "👁️ Supervisión Grupos", 
             "📋 Validaciones",
-            "📈 Reportes Distrito"
+            "📈 Reportes Distrito",
+            "📊 Consolidados"            # NUEVO
         ]
     else:  # ADMIN
         menu_options = [
@@ -81,7 +84,8 @@ def mostrar_aplicacion_principal():
             "👥 Gestión de Socios",
             "🌐 Gestión de Distritos",
             "👤 Gestión de Promotores",
-            "📊 Reportes Generales",  # NUEVO
+            "📊 Reportes Generales",     # NUEVO
+            "📈 Analytics",              # NUEVO
             "⚙️ Configuración del Sistema"
         ]
     
@@ -115,8 +119,10 @@ def mostrar_aplicacion_principal():
         modulo_moras()
     elif seleccion == "🔚 Cierre de Ciclo":
         modulo_cierre_ciclo()
-    elif "Reportes" in seleccion:
+    elif "Reportes" in seleccion or "Analytics" in seleccion or "Consolidados" in seleccion:
         modulo_reportes()
+    elif "Actas" in seleccion:
+        modulo_actas()
     elif "Configuración" in seleccion:
         st.info("Módulo de configuración - En desarrollo")
 
