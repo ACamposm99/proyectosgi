@@ -1,33 +1,68 @@
-import mysql.connector
-import os
+# db.py
 import streamlit as st
+import mysql.connector
+from mysql.connector import Error
+from contextlib import contextmanager
 
-# Obtener las credenciales de las variables de entorno (seguridad)
-host = os.getenv("DB_HOST", "bi7ylvxru3ib2rfxgwov-mysql.services.clever-cloud.com")
-user = os.getenv("DB_USER", "u79zzkwmdvyq6rqc")
-password = os.getenv("DB_PASSWORD", "hvErEG5TBr3XapoMCyiG")
-database = os.getenv("DB_NAME", "bi7ylvxru3ib2rfxgwov")
 
-# Intentar establecer la conexión
-try:
-    conn = mysql.connector.connect(
-        host=host,
-        user=user,
-        password=password,
-        database=database
-    )
-    
-    # Verificar si la conexión fue exitosa
-    if conn.is_connected():
-        st.success("Conexión exitosa a la base de datos MySQL.")
-    else:
-        st.error("No se pudo conectar a la base de datos.")
-        
-except mysql.connector.Error as err:
-    # Mostrar el error si la conexión falla
-    st.error(f"Error al conectar con la base de datos: {err}")
+def get_db_config():
+    """
+    Lee la configuración desde st.secrets["mysql"].
+    Asegúrate de tener la sección [mysql] en los secrets.
+    """
+    cfg = st.secrets["mysql"]
+    base_cfg = {
+        "host": cfg["host"],
+        "user": cfg["user"],
+        "password": cfg["password"],
+        "database": cfg["database"],
+        "port": int(cfg.get("port", 3306)),
+    }
 
-finally:
-    if conn.is_connected():
-        # Cerrar la conexión
-        conn.close()
+    # Si agregas ssl_ca en secrets, se usa automáticamente
+    if "ssl_ca" in cfg:
+        base_cfg["ssl_ca"] = cfg["ssl_ca"]
+
+    return base_cfg
+
+
+def get_connection():
+    """
+    Mantiene una conexión por sesión de usuario.
+    En Streamlit Cloud cada usuario tiene su propio session_state.
+    """
+    if "db_conn" not in st.session_state or st.session_state["db_conn"] is None:
+        cfg = get_db_config()
+        st.session_state["db_conn"] = mysql.connector.connect(
+            **cfg,
+            autocommit=True,
+        )
+    return st.session_state["db_conn"]
+
+
+@contextmanager
+def get_cursor(dictionary=True):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=dictionary)
+    try:
+        yield cursor
+    finally:
+        cursor.close()
+
+
+def fetch_all(query, params=None):
+    with get_cursor() as cur:
+        cur.execute(query, params or ())
+        return cur.fetchall()
+
+
+def fetch_one(query, params=None):
+    with get_cursor() as cur:
+        cur.execute(query, params or ())
+        return cur.fetchone()
+
+
+def execute(query, params=None):
+    with get_cursor() as cur:
+        cur.execute(query, params or ())
+        return cur.lastrowid
