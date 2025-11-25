@@ -37,6 +37,9 @@ def crear_promotor():
             id_distrito = st.selectbox("Distrito", obtener_distritos())
             activo = st.checkbox("Activo", value=True)
         
+        # Opción para crear usuario
+        crear_usuario = st.checkbox("🔐 Crear usuario de acceso para este promotor", value=True)
+        
         submitted = st.form_submit_button("💾 Guardar Promotor")
         
         if submitted:
@@ -47,8 +50,96 @@ def crear_promotor():
                 id_promotor = guardar_promotor(nombre, apellido, telefono, direccion, id_distrito_val, activo)
                 if id_promotor:
                     st.success(f"✅ Promotor '{nombre} {apellido}' creado exitosamente")
+                    
+                    # Crear usuario si está marcado
+                    if crear_usuario:
+                        crear_usuario_promotor(id_promotor, nombre, apellido)
                 else:
                     st.error("❌ Error al crear el promotor")
+
+def crear_usuario_promotor(id_promotor, nombre, apellido):
+    """Crear usuario de acceso para el promotor"""
+    
+    # Convertir id_promotor a entero si es necesario
+    try:
+        id_promotor = int(id_promotor)
+    except (ValueError, TypeError):
+        st.error("❌ ID de promotor inválido")
+        return False
+    
+    with st.form("form_usuario_promotor"):
+        st.markdown("### 🔐 Crear Usuario de Acceso")
+        
+        username = st.text_input("👤 Nombre de usuario", 
+                               value=f"{nombre.lower()}.{apellido.lower()}",
+                               help="Nombre de usuario para que el promotor acceda al sistema")
+        
+        password = st.text_input("🔒 Contraseña temporal", type="password", value="temp123",
+                               help="Contraseña temporal que el promotor deberá cambiar en su primer acceso")
+        
+        # El rol para promotores debe ser "PROMOTORA"
+        rol = st.selectbox("🎯 Rol", ["PROMOTORA"], 
+                          disabled=True,
+                          help="Los promotores tienen rol PROMOTORA por defecto")
+        
+        submitted = st.form_submit_button("👤 Crear Usuario para Promotor")
+        
+        if submitted:
+            # Validaciones
+            if not username.strip():
+                st.error("❌ El nombre de usuario es obligatorio")
+                return False
+                
+            if len(password) < 4:
+                st.error("❌ La contraseña debe tener al menos 4 caracteres")
+                return False
+            
+            # Verificar si el usuario ya existe
+            usuario_existente = ejecutar_consulta(
+                "SELECT id FROM usuarios WHERE username = %s", (username,)
+            )
+            
+            if usuario_existente:
+                st.error("❌ El nombre de usuario ya existe. Por favor elija otro.")
+                return False
+            
+            # En una implementación real, aquí se hashearía la contraseña
+            # Por ahora, guardamos en texto plano (SOLO PARA DESARROLLO)
+            password_hash = password  # EN PRODUCCIÓN: usar bcrypt o similar
+            
+            query = """
+                INSERT INTO usuarios (username, passwordhash, rol_sistema, id_promotor, activo)
+                VALUES (%s, %s, %s, %s, 1)
+            """
+            
+            params = (
+                str(username), 
+                str(password_hash), 
+                "PROMOTORA", 
+                int(id_promotor)
+            )
+            
+            if ejecutar_comando(query, params):
+                st.success(f"✅ Usuario '{username}' creado exitosamente para el promotor")
+                
+                # Mostrar credenciales temporales
+                with st.expander("🔑 Credenciales de Acceso del Promotor", expanded=True):
+                    st.code(f"""
+USUARIO: {username}
+CONTRASEÑA TEMPORAL: {password}
+ROL: PROMOTORA
+
+⚠️ **INSTRUCCIONES:**
+1. Comparta estas credenciales de manera segura con el promotor
+2. El promotor deberá cambiar la contraseña en su primer acceso
+3. La contraseña temporal es: {password}
+                    """)
+                return True
+            else:
+                st.error("❌ Error inesperado creando el usuario")
+                return False
+    
+    return None
 
 def validar_promotor(nombre, apellido, telefono):
     """Validar datos del promotor"""
@@ -98,7 +189,7 @@ def listar_promotores():
         st.metric("📊 Total de Promotores", len(promotores))
         
         for promotor in promotores:
-            with st.expander(f"👤 {promotor['nombre']} {promotor['apellido']}"):
+            with st.expander(f"👤 {promotor['nombre']} {promotor['apellido']} - {promotor['nombre_distrito']}"):
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
@@ -110,14 +201,27 @@ def listar_promotores():
                     st.write(f"**📊 Estado:** {'✅ Activo' if promotor['activo'] else '❌ Inactivo'}")
                 
                 with col3:
+                    # Verificar si tiene usuario
+                    tiene_usuario = ejecutar_consulta(
+                        "SELECT id FROM usuarios WHERE id_promotor = %s", (promotor['id_promotor'],)
+                    )
+                    if tiene_usuario:
+                        st.write("🔐 **Tiene usuario:** ✅")
+                    else:
+                        st.write("🔐 **Tiene usuario:** ❌")
+                    
                     # Acciones
                     if st.button("✏️ Editar", key=f"editar_{promotor['id_promotor']}"):
                         editar_promotor(promotor['id_promotor'])
+                    
+                    if st.button("👤 Crear Usuario", key=f"usuario_{promotor['id_promotor']}"):
+                        crear_usuario_promotor(promotor['id_promotor'], promotor['nombre'], promotor['apellido'])
                     
                     if st.button("🗑️ Eliminar", key=f"eliminar_{promotor['id_promotor']}"):
                         eliminar_promotor(promotor['id_promotor'])
     else:
         st.info("ℹ️ No hay promotores registrados")
+
 
 def obtener_promotores():
     """Obtener lista de todos los promotores"""

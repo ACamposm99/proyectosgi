@@ -49,10 +49,7 @@ def registrar_socio():
                 id_socio = crear_socio(nombre, apellido, telefono, direccion, id_grupo, id_distrito)
                 if id_socio:
                     st.success(f"✅ Socio '{nombre} {apellido}' registrado exitosamente")
-                    
-                    # Opción para crear usuario de acceso
-                    if st.checkbox("🎯 Crear usuario de acceso para este socio"):
-                        crear_usuario_socio(id_socio, nombre, apellido)
+                    # Se eliminó la opción de crear usuario para el socio
 
 def validar_socio(nombre, apellido, telefono):
     """Validar datos del socio"""
@@ -91,13 +88,7 @@ def crear_socio(nombre, apellido, telefono, direccion, id_grupo, id_distrito):
         VALUES (%s, %s, %s, %s, %s, %s)
     """
     
-    params = (nombre, apellido, telefono, direccion, id_grupo, id_distrito)
-    
-    # DEBUG: Mostrar parámetros
-    st.write("🔍 Parámetros a enviar a la BD:")
-    for i, (param, tipo) in enumerate(zip(params, [type(p) for p in params])):
-        st.write(f"  Parámetro {i}: {param} (tipo: {tipo})")
-    
+    params = (nombre, apellido, telefono, direccion, id_grupo, id_distrito)    
     return ejecutar_comando(query, params)
 
 
