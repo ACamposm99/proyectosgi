@@ -28,16 +28,27 @@ def registro_grupo():
         
         with col1:
             nombre_grupo = st.text_input("🏷️ Nombre del Grupo", placeholder="Ej: Grupo Solidaridad 2024")
-            id_distrito = st.selectbox("🗺️ Distrito", obtener_distritos())
+            
+            # Obtener solo el ID de los selectboxes
+            distritos_opciones = obtener_distritos()
+            id_distrito = st.selectbox("🗺️ Distrito", options=[d[0] for d in distritos_opciones], 
+                                     format_func=lambda x: next((d[1] for d in distritos_opciones if d[0] == x), "Seleccionar"))
+            
             fecha_creacion = st.date_input("📅 Fecha de Inicio", datetime.now())
-            id_frecuencia = st.selectbox("🔄 Frecuencia de Reuniones", obtener_frecuencias())
+            
+            frecuencias_opciones = obtener_frecuencias()
+            id_frecuencia = st.selectbox("🔄 Frecuencia de Reuniones", options=[f[0] for f in frecuencias_opciones],
+                                       format_func=lambda x: next((f[1] for f in frecuencias_opciones if f[0] == x), "Seleccionar"))
         
         with col2:
             hora_reunion = st.time_input("⏰ Hora de Reunión", value=datetime.strptime("14:00", "%H:%M").time())
             lugar_reunion = st.text_input("📍 Lugar de Reunión", placeholder="Ej: Casa de la Presidenta")
             dia_reunion = st.selectbox("📅 Día de Reunión", 
                                      ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"])
-            id_promotor = st.selectbox("👩‍💼 Promotor/a Asignado", obtener_promotores())
+            
+            promotores_opciones = obtener_promotores()
+            id_promotor = st.selectbox("👩‍💼 Promotor/a Asignado", options=[p[0] for p in promotores_opciones],
+                                     format_func=lambda x: next((p[1] for p in promotores_opciones if p[0] == x), "Seleccionar"))
         
         meta_social = st.text_area("🎯 Meta Social del Grupo", 
                                  placeholder="Ej: Mejorar las condiciones de vida de las familias mediante el ahorro...")
@@ -56,7 +67,7 @@ def registro_grupo():
                 if id_grupo:
                     st.success(f"✅ Grupo '{nombre_grupo}' creado exitosamente (ID: {id_grupo})")
                     st.info("🎉 Ahora puede asignar la directiva y configurar las reglas del grupo.")
-
+                    
 def validar_grupo(nombre, lugar):
     """Validar datos del grupo"""
     if not nombre.strip():
@@ -70,6 +81,32 @@ def validar_grupo(nombre, lugar):
 def crear_grupo(nombre, distrito, fecha, promotor, frecuencia, hora, lugar, dia, meta, reglas):
     """Crear nuevo grupo en la base de datos"""
     
+    # CONVERSIÓN EXPLÍCITA DE TIPOS DE DATOS
+    try:
+        # Convertir objetos date/datetime a string
+        if hasattr(fecha, 'strftime'):
+            fecha = fecha.strftime('%Y-%m-%d')
+        
+        # Convertir objetos time a string
+        if hasattr(hora, 'strftime'):
+            hora = hora.strftime('%H:%M:%S')
+        
+        # Asegurar que los IDs sean enteros
+        distrito = int(distrito) if distrito else None
+        promotor = int(promotor) if promotor else None
+        frecuencia = int(frecuencia) if frecuencia else None
+        
+        # Asegurar que textos sean strings (incluso si son None)
+        nombre = str(nombre) if nombre is not None else ""
+        lugar = str(lugar) if lugar is not None else ""
+        dia = str(dia) if dia is not None else ""
+        meta = str(meta) if meta is not None else ""
+        reglas = str(reglas) if reglas is not None else ""
+        
+    except (ValueError, TypeError) as e:
+        st.error(f"❌ Error en conversión de datos: {e}")
+        return False
+    
     query = """
         INSERT INTO grupos (nombre_grupo, id_distrito, fecha_creacion, id_promotor, 
                           id_frecuencia, hora_reunion, lugar_reunion, dia_reunion, 
@@ -78,6 +115,11 @@ def crear_grupo(nombre, distrito, fecha, promotor, frecuencia, hora, lugar, dia,
     """
     
     params = (nombre, distrito, fecha, promotor, frecuencia, hora, lugar, dia, meta, reglas)
+    
+    # DEBUG: Mostrar parámetros antes de ejecutar
+    st.write("🔍 Parámetros a enviar a la BD:")
+    for i, (param, tipo) in enumerate(zip(params, [type(p) for p in params])):
+        st.write(f"  Parámetro {i}: {param} (tipo: {tipo})")
     
     return ejecutar_comando(query, params)
 
