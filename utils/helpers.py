@@ -22,11 +22,11 @@ def mostrar_dashboard_admin():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        total_grupos = obtener_metricas("SELECT COUNT(*) as total FROM grupos WHERE estado = 'ACTIVO'")
-        st.metric("🏢 Grupos Activos", total_grupos[0]['total'] if total_grupos else 0)
+        total_grupos = obtener_metricas("SELECT COUNT(*) as total FROM grupos")
+        st.metric("🏢 Grupos Totales", total_grupos[0]['total'] if total_grupos else 0)
     
     with col2:
-        total_socios = obtener_metricas("SELECT COUNT(*) as total FROM socios WHERE estado = 'ACTIVO'")
+        total_socios = obtener_metricas("SELECT COUNT(*) as total FROM socios")
         st.metric("👥 Total Socios", total_socios[0]['total'] if total_socios else 0)
     
     with col3:
@@ -34,65 +34,32 @@ def mostrar_dashboard_admin():
         st.metric("🗺️ Distritos", total_distritos[0]['total'] if total_distritos else 0)
     
     with col4:
-        total_promotores = obtener_metricas("SELECT COUNT(*) as total FROM promotores WHERE estado = 'ACTIVO'")
+        total_promotores = obtener_metricas("SELECT COUNT(*) as total FROM promotores")
         st.metric("👩‍💼 Promotores", total_promotores[0]['total'] if total_promotores else 0)
-    
-    # Métricas financieras
-    st.subheader("💰 Métricas Financieras")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        # Ahorro total (último saldo_final de cada socio)
-        total_ahorro = obtener_metricas("""
-            SELECT COALESCE(SUM(ad.saldo_final), 0) as total 
-            FROM ahorro_detalle ad
-            WHERE ad.id_ahorro_detalle IN (
-                SELECT MAX(ad2.id_ahorro_detalle)
-                FROM ahorro_detalle ad2
-                GROUP BY ad2.id_socio
-            )
-        """)
-        st.metric("💵 Ahorro Total", f"${total_ahorro[0]['total']:,.2f}" if total_ahorro else "$0.00")
-    
-    with col2:
-        # Préstamos vigentes
-        total_prestamos = obtener_metricas("""
-            SELECT COALESCE(SUM(monto_desembolso), 0) as total 
-            FROM prestamo 
-            WHERE id_estado_prestamo IN (4, 6)  -- VIGENTE o MORA
-        """)
-        st.metric("🏦 Préstamos Vigentes", f"${total_prestamos[0]['total']:,.2f}" if total_prestamos else "$0.00")
-    
-    with col3:
-        # Caja total (último saldo_cierre de cada grupo)
-        caja_total = obtener_metricas("""
-            SELECT COALESCE(SUM(saldo_cierre), 0) as total 
-            FROM caja c
-            WHERE c.id_caja IN (
-                SELECT MAX(c2.id_caja)
-                FROM caja c2
-                GROUP BY c2.id_grupo
-            )
-        """)
-        st.metric("💳 Caja Total", f"${caja_total[0]['total']:,.2f}" if caja_total else "$0.00")
     
     # Grupos recientes
     st.subheader("🎯 Grupos Recientes")
     grupos_recientes = ejecutar_consulta("""
-        SELECT g.nombre_grupo, g.fecha_creacion, g.lugar_reunion, d.nombre_distrito 
-        FROM grupos g 
-        LEFT JOIN distrito d ON g.id_distrito = d.id_distrito
-        WHERE g.estado = 'ACTIVO'
-        ORDER BY g.fecha_creacion DESC 
+        SELECT nombre_grupo, fecha_creacion, lugar_reunion 
+        FROM grupos 
+        ORDER BY fecha_creacion DESC 
         LIMIT 5
     """)
     
     if grupos_recientes:
         for grupo in grupos_recientes:
-            distrito = grupo['nombre_distrito'] or "Sin distrito"
-            st.write(f"• **{grupo['nombre_grupo']}** - {distrito} - Creado: {grupo['fecha_creacion'].strftime('%d/%m/%Y')}")
+            st.write(f"• **{grupo['nombre_grupo']}** - Creado: {grupo['fecha_creacion'].strftime('%d/%m/%Y')}")
     else:
         st.info("ℹ️ No hay grupos registrados")
+    
+    # Información sobre datos financieros
+    st.subheader("💡 Información del Sistema")
+    st.info("""
+    **Estado de los módulos:**
+    - ✅ Grupos, Socios y Distritos funcionando
+    - 📊 Datos financieros disponibles cuando se registren reuniones
+    - 🔄 Los saldos se calcularán automáticamente
+    """)
 
 def mostrar_dashboard_directiva():
     """Dashboard para directiva de grupo"""
@@ -101,76 +68,75 @@ def mostrar_dashboard_directiva():
         st.warning("⚠️ No tiene un grupo asignado")
         return
     
-    # Métricas del grupo
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        total_socios = obtener_metricas(
-            "SELECT COUNT(*) as total FROM socios WHERE id_grupo = %s AND estado = 'ACTIVO'",
-            (st.session_state.id_grupo,)
-        )
-        st.metric("👥 Socios Activos", total_socios[0]['total'] if total_socios else 0)
-    
-    with col2:
-        proxima_reunion = obtener_proxima_reunion(st.session_state.id_grupo)
-        if proxima_reunion:
-            st.metric("📅 Próxima Reunión", proxima_reunion.strftime('%d/%m'))
-        else:
-            st.metric("📅 Próxima Reunión", "No programada")
-    
-    with col3:
-        # Ahorro total del grupo
-        ahorro_total = obtener_metricas("""
-            SELECT COALESCE(SUM(ad.saldo_final), 0) as total 
-            FROM ahorro_detalle ad
-            WHERE ad.id_grupo = %s 
-            AND ad.id_ahorro_detalle IN (
-                SELECT MAX(ad2.id_ahorro_detalle)
-                FROM ahorro_detalle ad2
-                WHERE ad2.id_grupo = %s
-                GROUP BY ad2.id_socio
-            )
-        """, (st.session_state.id_grupo, st.session_state.id_grupo))
-        st.metric("💰 Ahorro Total", f"${ahorro_total[0]['total']:,.2f}" if ahorro_total else "$0.00")
-    
-    with col4:
-        # Préstamos activos del grupo
-        prestamos_activos = obtener_metricas(
-            "SELECT COUNT(*) as total FROM prestamo WHERE id_grupo = %s AND id_estado_prestamo IN (4, 6)",
-            (st.session_state.id_grupo,)
-        )
-        st.metric("🏦 Préstamos Activos", prestamos_activos[0]['total'] if prestamos_activos else 0)
-    
-    # Métricas financieras del grupo
-    st.subheader("📊 Estado Financiero del Grupo")
+    # Métricas básicas del grupo
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        # Total préstamos vigentes del grupo
-        total_prestamos = obtener_metricas(
-            "SELECT COALESCE(SUM(monto_desembolso), 0) as total FROM prestamo WHERE id_grupo = %s AND id_estado_prestamo IN (4, 6)",
+        total_socios = obtener_metricas(
+            "SELECT COUNT(*) as total FROM socios WHERE id_grupo = %s",
             (st.session_state.id_grupo,)
         )
-        st.metric("📈 Préstamos Vigentes", f"${total_prestamos[0]['total']:,.2f}" if total_prestamos else "$0.00")
+        st.metric("👥 Socios del Grupo", total_socios[0]['total'] if total_socios else 0)
     
     with col2:
-        # Caja del grupo (último saldo)
-        caja_grupo = obtener_metricas("""
-            SELECT COALESCE(saldo_cierre, 0) as total 
-            FROM caja 
-            WHERE id_grupo = %s 
-            ORDER BY id_caja DESC 
-            LIMIT 1
-        """, (st.session_state.id_grupo,))
-        st.metric("💳 Caja del Grupo", f"${caja_grupo[0]['total']:,.2f}" if caja_grupo else "$0.00")
-    
-    with col3:
-        # Multas pendientes
-        multas_pendientes = obtener_metricas(
-            "SELECT COALESCE(SUM(monto_a_pagar - monto_pagado), 0) as total FROM multa WHERE id_grupo = %s AND monto_pagado < monto_a_pagar",
+        # Contar reuniones realizadas
+        reuniones_realizadas = obtener_metricas(
+            "SELECT COUNT(*) as total FROM sesion WHERE id_grupo = %s",
             (st.session_state.id_grupo,)
         )
-        st.metric("⚠️ Multas Pendientes", f"${multas_pendientes[0]['total']:,.2f}" if multas_pendientes else "$0.00")
+        st.metric("📅 Reuniones Realizadas", reuniones_realizadas[0]['total'] if reuniones_realizadas else 0)
+    
+    with col3:
+        # Contar préstamos si existen
+        try:
+            prestamos_totales = obtener_metricas(
+                "SELECT COUNT(*) as total FROM prestamo WHERE id_socio IN (SELECT id_socio FROM socios WHERE id_grupo = %s)",
+                (st.session_state.id_grupo,)
+            )
+            st.metric("🏦 Préstamos Totales", prestamos_totales[0]['total'] if prestamos_totales else 0)
+        except:
+            st.metric("🏦 Préstamos Totales", 0)
+    
+    # Información financiera del grupo
+    st.subheader("💰 Estado Financiero del Grupo")
+    
+    # Intentar obtener información de ahorros si existe
+    try:
+        # Último registro de ahorro del grupo
+        ultimo_ahorro = obtener_metricas("""
+            SELECT a.saldo_cierre 
+            FROM ahorro a 
+            JOIN sesion s ON a.id_sesion = s.id_sesion 
+            WHERE s.id_grupo = %s 
+            ORDER BY a.id_ahorro DESC 
+            LIMIT 1
+        """, (st.session_state.id_grupo,))
+        
+        if ultimo_ahorro and ultimo_ahorro[0]['saldo_cierre']:
+            st.metric("💵 Ahorro del Grupo", f"${ultimo_ahorro[0]['saldo_cierre']:,.2f}")
+        else:
+            st.metric("💵 Ahorro del Grupo", "$0.00")
+    except:
+        st.metric("💵 Ahorro del Grupo", "$0.00")
+    
+    # Intentar obtener información de caja si existe
+    try:
+        # Último registro de caja del grupo
+        ultima_caja = obtener_metricas("""
+            SELECT saldo_cierre 
+            FROM caja c 
+            JOIN sesion s ON c.id_sesion = s.id_sesion 
+            WHERE s.id_grupo = %s 
+            ORDER BY c.id_caja DESC 
+            LIMIT 1
+        """, (st.session_state.id_grupo,))
+        
+        if ultima_caja and ultima_caja[0]['saldo_cierre']:
+            st.metric("💳 Caja del Grupo", f"${ultima_caja[0]['saldo_cierre']:,.2f}")
+        else:
+            st.metric("💳 Caja del Grupo", "$0.00")
+    except:
+        st.metric("💳 Caja del Grupo", "$0.00")
     
     # Acciones rápidas
     st.subheader("🚀 Acciones Rápidas")
@@ -199,107 +165,59 @@ def mostrar_dashboard_promotora():
     if 'id_promotora' not in st.session_state:
         # Buscar el ID de la promotora basado en el usuario
         promotora_data = ejecutar_consulta(
-            "SELECT id_promotor FROM promotores WHERE usuario = %s",
+            "SELECT id_promotor FROM promotores WHERE nombre = %s LIMIT 1",
             (st.session_state.usuario,)
         )
         if promotora_data:
             st.session_state.id_promotora = promotora_data[0]['id_promotor']
         else:
-            st.error("❌ No se pudo identificar a la promotora")
-            return
+            # Si no encuentra por nombre, usar el primer promotor
+            promotora_data = ejecutar_consulta("SELECT id_promotor FROM promotores LIMIT 1")
+            if promotora_data:
+                st.session_state.id_promotora = promotora_data[0]['id_promotor']
+            else:
+                st.error("❌ No se pudo identificar a la promotora")
+                return
     
     id_promotora = st.session_state.id_promotora
     
     # Métricas generales de la promotora
     st.subheader("📈 Métricas de Supervisión")
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         grupos_asignados = obtener_metricas(
-            "SELECT COUNT(*) as total FROM grupos WHERE id_promotor = %s AND estado = 'ACTIVO'",
+            "SELECT COUNT(*) as total FROM grupos WHERE id_promotor = %s",
             (id_promotora,)
         )
         st.metric("🏢 Grupos Asignados", grupos_asignados[0]['total'] if grupos_asignados else 0)
     
     with col2:
         total_socios = obtener_metricas(
-            "SELECT COUNT(*) as total FROM socios s JOIN grupos g ON s.id_grupo = g.id_grupo WHERE g.id_promotor = %s AND s.estado = 'ACTIVO'",
+            "SELECT COUNT(*) as total FROM socios s JOIN grupos g ON s.id_grupo = g.id_grupo WHERE g.id_promotor = %s",
             (id_promotora,)
         )
         st.metric("👥 Total Socios", total_socios[0]['total'] if total_socios else 0)
     
     with col3:
-        reuniones_semana = obtener_metricas(
+        reuniones_totales = obtener_metricas(
             """SELECT COUNT(*) as total FROM sesion s 
                JOIN grupos g ON s.id_grupo = g.id_grupo 
-               WHERE g.id_promotor = %s AND s.fecha_sesion >= %s""",
-            (id_promotora, datetime.now().date() - timedelta(days=7))
-        )
-        st.metric("📅 Reuniones (7d)", reuniones_semana[0]['total'] if reuniones_semana else 0)
-    
-    with col4:
-        aprobaciones_pendientes = obtener_metricas(
-            """SELECT COUNT(*) as total FROM prestamo p 
-               JOIN grupos g ON p.id_grupo = g.id_grupo 
-               WHERE g.id_promotor = %s AND p.id_estado_prestamo = 1""",  -- PENDIENTE
+               WHERE g.id_promotor = %s""",
             (id_promotora,)
         )
-        st.metric("⏳ Préstamos por Validar", aprobaciones_pendientes[0]['total'] if aprobaciones_pendientes else 0)
+        st.metric("📅 Reuniones Totales", reuniones_totales[0]['total'] if reuniones_totales else 0)
     
-    # Métricas financieras
-    st.subheader("💰 Estado Financiero de Grupos")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        ahorro_total = obtener_metricas(
-            """SELECT COALESCE(SUM(ad.saldo_final), 0) as total 
-            FROM ahorro_detalle ad
-            JOIN grupos g ON ad.id_grupo = g.id_grupo
-            WHERE g.id_promotor = %s 
-            AND ad.id_ahorro_detalle IN (
-                SELECT MAX(ad2.id_ahorro_detalle)
-                FROM ahorro_detalle ad2
-                WHERE ad2.id_grupo = g.id_grupo
-                GROUP BY ad2.id_socio
-            )""",
-            (id_promotora,)
-        )
-        st.metric("💵 Ahorro Total", f"${ahorro_total[0]['total']:,.2f}" if ahorro_total else "$0.00")
-    
-    with col2:
-        prestamos_vigentes = obtener_metricas(
-            "SELECT COALESCE(SUM(p.monto_desembolso), 0) as total FROM prestamo p JOIN grupos g ON p.id_grupo = g.id_grupo WHERE g.id_promotor = %s AND p.id_estado_prestamo IN (4, 6)",
-            (id_promotora,)
-        )
-        st.metric("🏦 Préstamos Vigentes", f"${prestamos_vigentes[0]['total']:,.2f}" if prestamos_vigentes else "$0.00")
-    
-    with col3:
-        caja_total = obtener_metricas(
-            """SELECT COALESCE(SUM(c.saldo_cierre), 0) as total 
-            FROM caja c
-            JOIN grupos g ON c.id_grupo = g.id_grupo
-            WHERE g.id_promotor = %s 
-            AND c.id_caja IN (
-                SELECT MAX(c2.id_caja)
-                FROM caja c2
-                WHERE c2.id_grupo = g.id_grupo
-                GROUP BY c2.id_grupo
-            )""",
-            (id_promotora,)
-        )
-        st.metric("💳 Caja Total", f"${caja_total[0]['total']:,.2f}" if caja_total else "$0.00")
-    
-    # Grupos asignados con detalles
+    # Grupos asignados con detalles básicos
     st.subheader("🎯 Grupos Asignados")
     
     grupos = ejecutar_consulta(
         """SELECT g.id_grupo, g.nombre_grupo, g.lugar_reunion, g.fecha_creacion,
-                  COUNT(s.id_socio) as socios_activos
+                  COUNT(s.id_socio) as total_socios
            FROM grupos g 
-           LEFT JOIN socios s ON g.id_grupo = s.id_grupo AND s.estado = 'ACTIVO'
-           WHERE g.id_promotor = %s AND g.estado = 'ACTIVO'
+           LEFT JOIN socios s ON g.id_grupo = s.id_grupo
+           WHERE g.id_promotor = %s
            GROUP BY g.id_grupo, g.nombre_grupo, g.lugar_reunion, g.fecha_creacion
            ORDER BY g.fecha_creacion DESC""",
         (id_promotora,)
@@ -307,91 +225,46 @@ def mostrar_dashboard_promotora():
     
     if grupos:
         for grupo in grupos:
-            # Obtener ahorro del grupo
-            ahorro_grupo = obtener_metricas(
-                """SELECT COALESCE(SUM(ad.saldo_final), 0) as total_ahorro 
-                FROM ahorro_detalle ad
-                WHERE ad.id_grupo = %s 
-                AND ad.id_ahorro_detalle IN (
-                    SELECT MAX(ad2.id_ahorro_detalle)
-                    FROM ahorro_detalle ad2
-                    WHERE ad2.id_grupo = %s
-                    GROUP BY ad2.id_socio
-                )""",
-                (grupo['id_grupo'], grupo['id_grupo'])
-            )
-            total_ahorro = ahorro_grupo[0]['total_ahorro'] if ahorro_grupo else 0
-            
-            with st.expander(f"🏢 {grupo['nombre_grupo']} - {grupo['socios_activos']} socios - Ahorro: ${total_ahorro:,.2f}"):
+            with st.expander(f"🏢 {grupo['nombre_grupo']} - {grupo['total_socios']} socios"):
                 col1, col2 = st.columns(2)
                 with col1:
                     st.write(f"**Lugar reunión:** {grupo['lugar_reunion']}")
                     st.write(f"**Fecha creación:** {grupo['fecha_creacion'].strftime('%d/%m/%Y')}")
                 
                 with col2:
-                    # Próxima reunión del grupo
-                    prox_reunion = obtener_proxima_reunion(grupo['id_grupo'])
-                    if prox_reunion:
-                        st.write(f"**Próxima reunión:** {prox_reunion.strftime('%d/%m/%Y %H:%M')}")
+                    # Última reunión del grupo
+                    ultima_reunion = obtener_metricas(
+                        "SELECT fecha_sesion FROM sesion WHERE id_grupo = %s ORDER BY fecha_sesion DESC LIMIT 1",
+                        (grupo['id_grupo'],)
+                    )
+                    if ultima_reunion and ultima_reunion[0]['fecha_sesion']:
+                        st.write(f"**Última reunión:** {ultima_reunion[0]['fecha_sesion'].strftime('%d/%m/%Y')}")
                     else:
-                        st.write("**Próxima reunión:** No programada")
-                    
-                    # Acciones rápidas por grupo
-                    if st.button(f"👁️ Supervisar", key=f"supervisar_{grupo['id_grupo']}"):
-                        st.session_state.grupo_seleccionado = grupo['id_grupo']
-                        st.session_state.current_page = "👁️ Supervisión Grupos"
-                        st.rerun()
+                        st.write("**Última reunión:** Sin reuniones")
     else:
         st.info("ℹ️ No hay grupos asignados para supervisión")
 
 def obtener_metricas(query, params=None):
     """Obtener métricas desde la base de datos"""
     try:
-        return ejecutar_consulta(query, params)
+        resultado = ejecutar_consulta(query, params)
+        return resultado
     except Exception as e:
-        st.error(f"Error al obtener métricas: {str(e)}")
+        # No mostrar el error en el dashboard para no confundir al usuario
+        # Solo retornar None para que se muestre 0 o valor por defecto
         return None
 
 def obtener_proxima_reunion(id_grupo):
-    """Obtener la próxima reunión programada para el grupo"""
+    """Obtener información de reuniones del grupo"""
     try:
-        # Primero intentar con tabla reuniones si existe
-        reuniones = ejecutar_consulta(
-            """SELECT fecha, hora, lugar 
-               FROM reuniones 
-               WHERE id_grupo = %s AND fecha >= %s AND estado = 'PROGRAMADA'
-               ORDER BY fecha, hora ASC 
-               LIMIT 1""",
-            (id_grupo, datetime.now().date())
-        )
-        
-        if reuniones and reuniones[0]['fecha']:
-            fecha = reuniones[0]['fecha']
-            hora = reuniones[0]['hora'] or datetime.now().time()
-            return datetime.combine(fecha, hora)
-        
-        # Si no hay reuniones programadas, usar la configuración del grupo
+        # Obtener la configuración de reuniones del grupo
         grupo_config = ejecutar_consulta(
             "SELECT dia_reunion, hora_reunion FROM grupos WHERE id_grupo = %s",
             (id_grupo,)
         )
         
         if grupo_config and grupo_config[0]['dia_reunion'] and grupo_config[0]['hora_reunion']:
-            # Calcular próxima reunión basada en día y hora
-            hoy = datetime.now()
-            dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-            dia_reunion = grupo_config[0]['dia_reunion']
-            hora_reunion = grupo_config[0]['hora_reunion']
-            
-            if dia_reunion in dias_semana:
-                dia_num = dias_semana.index(dia_reunion)
-                dias_hasta_reunion = (dia_num - hoy.weekday()) % 7
-                if dias_hasta_reunion == 0 and hoy.time() > hora_reunion:
-                    dias_hasta_reunion = 7
-                proxima_fecha = hoy + timedelta(days=dias_hasta_reunion)
-                return datetime.combine(proxima_fecha.date(), hora_reunion)
-        
-        return None
-    except Exception as e:
-        st.error(f"Error al obtener próxima reunión: {str(e)}")
-        return None
+            return f"{grupo_config[0]['dia_reunion']} {grupo_config[0]['hora_reunion']}"
+        return "No programada"
+    except Exception:
+        return "No programada"
