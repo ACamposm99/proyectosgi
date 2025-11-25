@@ -2,7 +2,6 @@ import streamlit as st
 from modules.database import ejecutar_consulta, ejecutar_comando
 from datetime import datetime
 import pandas as pd
-import plotly.express as px
 
 def modulo_afiliacion_socios():
     """Módulo principal para la gestión de socios"""
