@@ -187,31 +187,17 @@ def obtener_distritos():
 
 def obtener_frecuencias():
     """Obtener lista de frecuencias"""
-    resultado = ejecutar_consulta("SELECT * FROM tipo_frecuencia FROM frecuencia")
+    resultado = ejecutar_consulta("SELECT `id_frecuenca`, `tipo_frecuencia` FROM `frecuencia`")
     if resultado:
-        return [(row[''], row['tipo_frecuencia']) for row in resultado]
+        return [(row['id_frecuenca'], row['tipo_frecuencia']) for row in resultado]
     return []
 
 def obtener_promotores():
     """Obtener lista de promotores"""
-    try:
-        resultado = ejecutar_consulta("""
-            SELECT id_promotor, CONCAT(nombre, ' ', apellido) as nombre 
-            FROM promotores 
-            WHERE activo = 1
-        """)
-        
-        if resultado:
-            return [(row['id_promotor'], row['nombre']) for row in resultado]
-        else:
-            # Si no hay promotores, crear uno por defecto
-            crear_promotor_por_defecto()
-            return [(1, "Promotor Demo")]
-            
-    except Exception as e:
-        st.error(f"Error al obtener promotores: {e}")
-        return [(1, "Promotor Demo")]
-    
+    resultado = ejecutar_consulta("SELECT `id_promotor`, CONCAT(`nombre`, ' ', `apellido`) as nombre FROM `promotores`")
+    if resultado:
+        return [(row['id_promotor'], row['nombre']) for row in resultado]
+    return [(1, "Promotor Demo")]
 
 def obtener_grupos_con_nombres():
     """Obtener grupos con formato para selectbox"""
