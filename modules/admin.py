@@ -1,186 +1,130 @@
 import streamlit as st
 from modules.database import ejecutar_consulta, ejecutar_comando
+from datetime import datetime
 
 def modulo_gestion_promotores():
-    """Módulo para gestión de promotores (para administradores)"""
+    """Módulo para gestión de promotores (solo ADMIN)"""
     
     st.header("👩‍💼 Gestión de Promotores")
     
-    tab1, tab2, tab3 = st.tabs(["📋 Lista de Promotores", "➕ Nuevo Promotor", "📊 Asignación Grupos"])
+    if st.session_state.rol != "ADMIN":
+        st.warning("⚠️ Solo los administradores pueden gestionar promotores")
+        return
+    
+    tab1, tab2 = st.tabs(["➕ Nuevo Promotor", "📋 Lista de Promotores"])
     
     with tab1:
-        listar_promotores()
-    
-    with tab2:
         crear_promotor()
     
-    with tab3:
-        asignacion_grupos()
-
-def listar_promotores():
-    """Listar todos los promotores"""
-    
-    st.subheader("📋 Lista de Promotores")
-    
-    promotores = obtener_promotores_completos()
-    
-    if promotores:
-        # Métricas
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Total Promotores", len(promotores))
-        
-        with col2:
-            activos = sum(1 for p in promotores if p['activo'])
-            st.metric("Promotores Activos", activos)
-        
-        with col3:
-            grupos_por_promotor = sum(p['total_grupos'] for p in promotores) / len(promotores)
-            st.metric("Promedio Grupos", f"{grupos_por_promotor:.1f}")
-        
-        # Tabla de promotores
-        st.markdown("### Detalle de Promotores")
-        
-        for promotor in promotores:
-            with st.expander(f"👤 {promotor['nombre_completo']} - {promotor['total_grupos']} grupos"):
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.write(f"**Teléfono:** {promotor['tele']}")
-                    st.write(f"**Dirección:** {promotor['direccion']}")
-                    st.write(f"**Distrito:** {promotor['nombre_distrito']}")
-                
-                with col2:
-                    st.write(f"**Grupos asignados:** {promotor['total_grupos']}")
-                    st.write(f"**Estado:** {'🟢 Activo' if promotor['activo'] else '🔴 Inactivo'}")
-                
-                with col3:
-                    # Botones de acción
-                    if st.button("✏️ Editar", key=f"editar_{promotor['id_promotor']}"):
-                        editar_promotor(promotor['id_promotor'])
-                    
-                    if st.button("👁️ Ver Grupos", key=f"grupos_{promotor['id_promotor']}"):
-                        ver_grupos_promotor(promotor['id_promotor'])
-    else:
-        st.info("ℹ️ No hay promotores registrados")
+    with tab2:
+        listar_promotores()
 
 def crear_promotor():
     """Formulario para crear nuevo promotor"""
     
-    st.subheader("➕ Registrar Nuevo Promotor")
+    st.subheader("Crear Nuevo Promotor")
     
     with st.form("form_nuevo_promotor"):
         col1, col2 = st.columns(2)
         
         with col1:
-            nombre = st.text_input("👤 Nombre", placeholder="Ej: María")
-            apellido = st.text_input("👤 Apellido", placeholder="Ej: García")
-            telefono = st.text_input("📞 Teléfono", placeholder="Ej: 9999-9999")
+            nombre = st.text_input("Nombre", placeholder="Ej: Ana")
+            apellido = st.text_input("Apellido", placeholder="Ej: García")
+            telefono = st.text_input("Teléfono", placeholder="Ej: 9999-9999")
         
         with col2:
-            direccion = st.text_input("🏠 Dirección", placeholder="Ej: Colonia Los Pinos")
-            id_distrito = st.selectbox("🗺️ Distrito", obtener_distritos())
-            activo = st.checkbox("✅ Activo", value=True)
+            direccion = st.text_input("Dirección", placeholder="Ej: Colonia Los Pinos")
+            id_distrito = st.selectbox("Distrito", obtener_distritos())
+            activo = st.checkbox("Activo", value=True)
         
-        submitted = st.form_submit_button("💾 Registrar Promotor")
+        submitted = st.form_submit_button("💾 Guardar Promotor")
         
         if submitted:
             if validar_promotor(nombre, apellido, telefono):
-                id_promotor = guardar_promotor(nombre, apellido, telefono, direccion, id_distrito, activo)
+                # Extraer solo el ID (no la tupla completa)
+                id_distrito_val = id_distrito[0] if isinstance(id_distrito, tuple) else id_distrito
+                
+                id_promotor = guardar_promotor(nombre, apellido, telefono, direccion, id_distrito_val, activo)
                 if id_promotor:
-                    st.success(f"✅ Promotor '{nombre} {apellido}' registrado exitosamente")
-                    st.rerun()
-            else:
-                st.error("❌ Complete los campos obligatorios")
+                    st.success(f"✅ Promotor '{nombre} {apellido}' creado exitosamente")
+                else:
+                    st.error("❌ Error al crear el promotor")
 
 def validar_promotor(nombre, apellido, telefono):
     """Validar datos del promotor"""
     if not nombre.strip():
+        st.error("❌ El nombre es obligatorio")
         return False
     if not apellido.strip():
+        st.error("❌ El apellido es obligatorio")
         return False
     if not telefono.strip():
+        st.error("❌ El teléfono es obligatorio")
         return False
     return True
 
 def guardar_promotor(nombre, apellido, telefono, direccion, id_distrito, activo):
     """Guardar promotor en la base de datos"""
     
-    # Obtener próximo ID disponible
-    proximo_id = obtener_proximo_id_promotor()
-    
     query = """
-        INSERT INTO promotores (id_promotor, nombre, apellido, tele, direccion, id_distrito, activo)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO promotores (nombre, apellido, tele, direccion, id_distrito, activo)
+        VALUES (%s, %s, %s, %s, %s, %s)
     """
     
+    # Asegurar que todos los parámetros tengan el tipo correcto
     params = (
-        proximo_id,
         str(nombre),
-        str(apellido),
+        str(apellido), 
         str(telefono),
         str(direccion),
         int(id_distrito),
-        int(activo)
+        bool(activo)
     )
     
-    return ejecutar_comando(query, params)
+    try:
+        return ejecutar_comando(query, params)
+    except Exception as e:
+        st.error(f"❌ Error al guardar promotor: {e}")
+        return None
 
-def asignacion_grupos():
-    """Asignación de grupos a promotores"""
+def listar_promotores():
+    """Mostrar lista de promotores existentes"""
     
-    st.subheader("📊 Asignación de Grupos a Promotores")
+    st.subheader("Promotores Registrados")
     
-    # Obtener grupos sin promotor asignado
-    grupos_sin_promotor = obtener_grupos_sin_promotor()
+    promotores = obtener_promotores()
     
-    if grupos_sin_promotor:
-        st.info(f"ℹ️ Hay {len(grupos_sin_promotor)} grupos sin promotor asignado")
+    if promotores:
+        st.metric("📊 Total de Promotores", len(promotores))
         
-        for grupo in grupos_sin_promotor:
-            with st.container():
-                col1, col2, col3 = st.columns([3, 2, 2])
+        for promotor in promotores:
+            with st.expander(f"👤 {promotor['nombre']} {promotor['apellido']}"):
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    st.write(f"**{grupo['nombre_grupo']}**")
-                    st.write(f"Distrito: {grupo['nombre_distrito']}")
+                    st.write(f"**📞 Teléfono:** {promotor['tele']}")
+                    st.write(f"**🏠 Dirección:** {promotor['direccion']}")
                 
                 with col2:
-                    promotores = obtener_promotores_activos()
-                    promotor_seleccionado = st.selectbox(
-                        "Asignar promotor:",
-                        promotores,
-                        key=f"promotor_{grupo['id_grupo']}"
-                    )
+                    st.write(f"**🗺️ Distrito:** {promotor['nombre_distrito']}")
+                    st.write(f"**📊 Estado:** {'✅ Activo' if promotor['activo'] else '❌ Inactivo'}")
                 
                 with col3:
-                    if st.button("💾 Asignar", key=f"asignar_{grupo['id_grupo']}"):
-                        if asignar_promotor_grupo(grupo['id_grupo'], promotor_seleccionado[0]):
-                            st.success("✅ Promotor asignado exitosamente")
-                            st.rerun()
+                    # Acciones
+                    if st.button("✏️ Editar", key=f"editar_{promotor['id_promotor']}"):
+                        editar_promotor(promotor['id_promotor'])
+                    
+                    if st.button("🗑️ Eliminar", key=f"eliminar_{promotor['id_promotor']}"):
+                        eliminar_promotor(promotor['id_promotor'])
     else:
-        st.success("🎉 Todos los grupos tienen promotor asignado")
+        st.info("ℹ️ No hay promotores registrados")
 
-# =============================================================================
-# FUNCIONES AUXILIARES - PROMOTORES
-# =============================================================================
-
-def obtener_promotores_completos():
-    """Obtener información completa de promotores"""
+def obtener_promotores():
+    """Obtener lista de todos los promotores"""
     query = """
-        SELECT 
-            p.id_promotor,
-            CONCAT(p.nombre, ' ', p.apellido) as nombre_completo,
-            p.tele,
-            p.direccion,
-            p.activo,
-            d.nombre_distrito,
-            COUNT(g.id_grupo) as total_grupos
+        SELECT p.*, d.nombre_distrito 
         FROM promotores p
         LEFT JOIN distrito d ON p.id_distrito = d.id_distrito
-        LEFT JOIN grupos g ON p.id_promotor = g.id_promotor
-        GROUP BY p.id_promotor
         ORDER BY p.nombre, p.apellido
     """
     return ejecutar_consulta(query)
@@ -192,44 +136,78 @@ def obtener_distritos():
         return [(row['id_distrito'], row['nombre_distrito']) for row in resultado]
     return []
 
-def obtener_proximo_id_promotor():
-    """Obtener próximo ID disponible para promotor"""
-    resultado = ejecutar_consulta("SELECT COALESCE(MAX(id_promotor), 0) + 1 as proximo_id FROM promotores")
-    return resultado[0]['proximo_id'] if resultado else 1
-
-def obtener_grupos_sin_promotor():
-    """Obtener grupos sin promotor asignado"""
-    query = """
-        SELECT 
-            g.id_grupo,
-            g.nombre_grupo,
-            d.nombre_distrito
-        FROM grupos g
-        JOIN distrito d ON g.id_distrito = d.id_distrito
-        WHERE g.id_promotor IS NULL OR g.id_promotor = 0
-    """
-    return ejecutar_consulta(query)
-
-def obtener_promotores_activos():
-    """Obtener promotores activos"""
-    resultado = ejecutar_consulta("""
-        SELECT id_promotor, CONCAT(nombre, ' ', apellido) as nombre 
-        FROM promotores 
-        WHERE activo = 1
-    """)
-    if resultado:
-        return [(row['id_promotor'], row['nombre']) for row in resultado]
-    return []
-
-def asignar_promotor_grupo(id_grupo, id_promotor):
-    """Asignar promotor a un grupo"""
-    query = "UPDATE grupos SET id_promotor = %s WHERE id_grupo = %s"
-    return ejecutar_comando(query, (id_promotor, id_grupo))
-
 def editar_promotor(id_promotor):
-    """Editar información de promotor"""
+    """Editar promotor existente"""
     st.info(f"🔧 Funcionalidad en desarrollo - Editar promotor #{id_promotor}")
 
-def ver_grupos_promotor(id_promotor):
-    """Ver grupos asignados a un promotor"""
-    st.info(f"🔧 Funcionalidad en desarrollo - Grupos del promotor #{id_promotor}")
+def eliminar_promotor(id_promotor):
+    """Eliminar promotor (lógico)"""
+    st.info(f"🔧 Funcionalidad en desarrollo - Eliminar promotor #{id_promotor}")
+
+def modulo_gestion_distritos():
+    """Módulo para gestión de distritos (solo ADMIN)"""
+    
+    st.header("🗺️ Gestión de Distritos")
+    
+    if st.session_state.rol != "ADMIN":
+        st.warning("⚠️ Solo los administradores pueden gestionar distritos")
+        return
+    
+    tab1, tab2 = st.tabs(["➕ Nuevo Distrito", "📋 Lista de Distritos"])
+    
+    with tab1:
+        crear_distrito()
+    
+    with tab2:
+        listar_distritos()
+
+def crear_distrito():
+    """Formulario para crear nuevo distrito"""
+    
+    st.subheader("Crear Nuevo Distrito")
+    
+    with st.form("form_nuevo_distrito"):
+        nombre_distrito = st.text_input("Nombre del Distrito", placeholder="Ej: Distrito Este")
+        municipio = st.text_input("Municipio", placeholder="Ej: Comayagüela")
+        
+        submitted = st.form_submit_button("💾 Guardar Distrito")
+        
+        if submitted:
+            if nombre_distrito and municipio:
+                if guardar_distrito(nombre_distrito, municipio):
+                    st.success("✅ Distrito creado exitosamente")
+                    st.rerun()
+            else:
+                st.error("❌ Complete todos los campos")
+
+def guardar_distrito(nombre, municipio):
+    """Guardar distrito en la base de datos"""
+    query = "INSERT INTO distrito (nombre_distrito, municipio) VALUES (%s, %s)"
+    params = (str(nombre), str(municipio))
+    return ejecutar_comando(query, params)
+
+def listar_distritos():
+    """Mostrar lista de distritos existentes"""
+    
+    st.subheader("Distritos Registrados")
+    
+    distritos = obtener_todos_distritos()
+    
+    if distritos:
+        st.metric("📊 Total de Distritos", len(distritos))
+        
+        for distrito in distritos:
+            col1, col2, col3 = st.columns([3, 2, 1])
+            with col1:
+                st.write(f"**{distrito['nombre_distrito']}**")
+            with col2:
+                st.write(f"Municipio: {distrito['municipio']}")
+            with col3:
+                if st.button("🗑️", key=f"eliminar_distrito_{distrito['id_distrito']}"):
+                    st.warning("Funcionalidad en desarrollo")
+    else:
+        st.info("ℹ️ No hay distritos registrados")
+
+def obtener_todos_distritos():
+    """Obtener todos los distritos"""
+    return ejecutar_consulta("SELECT * FROM distrito ORDER BY nombre_distrito")
