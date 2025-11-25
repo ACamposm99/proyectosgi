@@ -8,10 +8,10 @@ from modules.ahorros import modulo_ahorros
 from modules.caja import modulo_caja
 from modules.prestamos import modulo_prestamos
 from modules.pagos import modulo_pagos
-from modules.moras import modulo_moras
-from modules.cierre_ciclo import modulo_cierre_ciclo  # NUEVO
-from modules.reportes import modulo_reportes          # NUEVO
-from modules.actas import modulo_actas                # NUEVO
+# from modules.moras import modulo_moras  # ELIMINADO
+from modules.cierre_ciclo import modulo_cierre_ciclo
+from modules.reportes import modulo_reportes
+from modules.actas import modulo_actas
 from utils.helpers import mostrar_dashboard_principal
 from modules.admin import modulo_gestion_promotores
 
@@ -65,10 +65,10 @@ def mostrar_aplicacion_principal():
             "💳 Gestión de Caja",
             "🏦 Solicitud de Préstamos",
             "💵 Registro de Pagos",
-            "⚠️ Control de Moras",
-            "🔚 Cierre de Ciclo",        # NUEVO
-            "📈 Reportes Ejecutivos",    # NUEVO
-            "📄 Actas y Documentos",     # NUEVO
+            # "⚠️ Control de Moras",  # ELIMINADO
+            "🔚 Cierre de Ciclo",
+            "📈 Reportes Ejecutivos",
+            "📄 Actas y Documentos",
             "⚙️ Configuración"
         ]
     elif st.session_state.rol == "PROMOTORA":
@@ -77,7 +77,7 @@ def mostrar_aplicacion_principal():
             "👁️ Supervisión Grupos", 
             "📋 Validaciones",
             "📈 Reportes Distrito",
-            "📊 Consolidados"            # NUEVO
+            "📊 Consolidados"
         ]
     else:  # ADMIN
         menu_options = [
@@ -86,8 +86,8 @@ def mostrar_aplicacion_principal():
             "👥 Gestión de Socios",
             "🌐 Gestión de Distritos",
             "👤 Gestión de Promotores",
-            "📊 Reportes Generales",     # NUEVO
-            "📈 Analytics",              # NUEVO
+            "📊 Reportes Generales",
+            "📈 Analytics",
             "⚙️ Configuración del Sistema"
         ]
     
@@ -117,8 +117,8 @@ def mostrar_aplicacion_principal():
         modulo_prestamos()
     elif seleccion == "💵 Registro de Pagos":
         modulo_pagos()
-    elif seleccion == "⚠️ Control de Moras":
-        modulo_moras()
+    # elif seleccion == "⚠️ Control de Moras":  # ELIMINADO
+    #     modulo_moras()
     elif seleccion == "👤 Gestión de Promotores":
         modulo_gestion_promotores()
     elif seleccion == "🔚 Cierre de Ciclo":

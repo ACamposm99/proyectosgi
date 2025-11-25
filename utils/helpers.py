@@ -39,7 +39,7 @@ def mostrar_dashboard_admin():
     
     # Métricas financieras
     st.subheader("💰 Métricas Financieras")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)  # Reducido a 3 columnas
     
     with col1:
         total_ahorro = obtener_metricas("SELECT COALESCE(SUM(saldo_actual), 0) as total FROM ahorros")
@@ -50,10 +50,6 @@ def mostrar_dashboard_admin():
         st.metric("🏦 Préstamos Vigentes", f"${total_prestamos[0]['total']:,.2f}" if total_prestamos else "$0.00")
     
     with col3:
-        total_mora = obtener_metricas("SELECT COALESCE(SUM(monto_mora), 0) as total FROM moras WHERE estado = 'PENDIENTE'")
-        st.metric("⚠️ Mora Pendiente", f"${total_mora[0]['total']:,.2f}" if total_mora else "$0.00")
-    
-    with col4:
         caja_total = obtener_metricas("SELECT COALESCE(SUM(saldo), 0) as total FROM caja")
         st.metric("💳 Caja Total", f"${caja_total[0]['total']:,.2f}" if caja_total else "$0.00")
     
@@ -115,7 +111,7 @@ def mostrar_dashboard_directiva():
     
     # Métricas financieras del grupo
     st.subheader("📊 Estado Financiero del Grupo")
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)  # Reducido a 2 columnas
     
     with col1:
         total_prestamos = obtener_metricas(
@@ -125,13 +121,6 @@ def mostrar_dashboard_directiva():
         st.metric("📈 Préstamos Vigentes", f"${total_prestamos[0]['total']:,.2f}" if total_prestamos else "$0.00")
     
     with col2:
-        total_mora = obtener_metricas(
-            "SELECT COALESCE(SUM(monto_mora), 0) as total FROM moras WHERE id_grupo = %s AND estado = 'PENDIENTE'",
-            (st.session_state.id_grupo,)
-        )
-        st.metric("⚠️ Mora Pendiente", f"${total_mora[0]['total']:,.2f}" if total_mora else "$0.00")
-    
-    with col3:
         caja_grupo = obtener_metricas(
             "SELECT COALESCE(SUM(saldo), 0) as total FROM caja WHERE id_grupo = %s",
             (st.session_state.id_grupo,)
@@ -216,7 +205,7 @@ def mostrar_dashboard_promotora():
     # Métricas financieras
     st.subheader("💰 Estado Financiero de Grupos")
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2 = st.columns(2)  # Reducido a 2 columnas
     
     with col1:
         ahorro_total = obtener_metricas(
@@ -231,28 +220,6 @@ def mostrar_dashboard_promotora():
             (id_promotora,)
         )
         st.metric("🏦 Préstamos Vigentes", f"${prestamos_vigentes[0]['total']:,.2f}" if prestamos_vigentes else "$0.00")
-    
-    with col3:
-        mora_total = obtener_metricas(
-            "SELECT COALESCE(SUM(m.monto_mora), 0) as total FROM moras m JOIN grupos g ON m.id_grupo = g.id_grupo WHERE g.id_promotora = %s AND m.estado = 'PENDIENTE'",
-            (id_promotora,)
-        )
-        st.metric("⚠️ Mora Acumulada", f"${mora_total[0]['total']:,.2f}" if mora_total else "$0.00")
-    
-    with col4:
-        indice_mora = obtener_metricas(
-            """SELECT 
-                   CASE WHEN SUM(p.saldo_pendiente) > 0 
-                   THEN (COALESCE(SUM(m.monto_mora), 0) / SUM(p.saldo_pendiente)) * 100 
-                   ELSE 0 END as porcentaje
-               FROM prestamos p 
-               JOIN grupos g ON p.id_grupo = g.id_grupo 
-               LEFT JOIN moras m ON p.id_prestamo = m.id_prestamo AND m.estado = 'PENDIENTE'
-               WHERE g.id_promotora = %s AND p.estado = 'VIGENTE'""",
-            (id_promotora,)
-        )
-        porcentaje = indice_mora[0]['porcentaje'] if indice_mora else 0
-        st.metric("📊 Índice de Mora", f"{porcentaje:.1f}%")
     
     # Grupos asignados con detalles
     st.subheader("🎯 Grupos Asignados")
