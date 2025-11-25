@@ -67,7 +67,7 @@ def registro_grupo():
                 if id_grupo:
                     st.success(f"✅ Grupo '{nombre_grupo}' creado exitosamente (ID: {id_grupo})")
                     st.info("🎉 Ahora puede asignar la directiva y configurar las reglas del grupo.")
-                    
+
 def validar_grupo(nombre, lugar):
     """Validar datos del grupo"""
     if not nombre.strip():
@@ -110,7 +110,7 @@ def crear_grupo(nombre, distrito, fecha, promotor, frecuencia, hora, lugar, dia,
     query = """
         INSERT INTO grupos (nombre_grupo, id_distrito, fecha_creacion, id_promotor, 
                           id_frecuencia, hora_reunion, lugar_reunion, dia_reunion, 
-                          meta_social, `otras reglas`)
+                          meta_social, `otras_reglas`)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     
