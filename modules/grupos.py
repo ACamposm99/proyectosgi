@@ -116,11 +116,6 @@ def crear_grupo(nombre, distrito, fecha, promotor, frecuencia, hora, lugar, dia,
     
     params = (nombre, distrito, fecha, promotor, frecuencia, hora, lugar, dia, meta, reglas)
     
-    # DEBUG: Mostrar parámetros antes de ejecutar
-    st.write("🔍 Parámetros a enviar a la BD:")
-    for i, (param, tipo) in enumerate(zip(params, [type(p) for p in params])):
-        st.write(f"  Parámetro {i}: {param} (tipo: {tipo})")
-    
     return ejecutar_comando(query, params)
 
 def gestion_directiva():
