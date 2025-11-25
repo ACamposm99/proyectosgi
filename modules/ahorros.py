@@ -2,6 +2,8 @@ import streamlit as st
 from modules.database import ejecutar_consulta, ejecutar_comando
 from datetime import datetime
 import pandas as pd
+import tempfile
+import os
 
 def modulo_ahorros():
     """Módulo principal para gestión de ahorros"""
@@ -288,7 +290,7 @@ def estado_ahorros():
         st.info("ℹ️ No hay registros de ahorro para este grupo")
 
 # =============================================================================
-# FUNCIONES AUXILIARES - AHORROS
+# FUNCIONES AUXILIARES - AHORROS (TODAS IMPLEMENTADAS)
 # =============================================================================
 
 def obtener_ultimo_saldo_cierre(id_grupo):
@@ -424,12 +426,267 @@ def obtener_estado_ahorros_grupo(id_grupo):
     return ejecutar_consulta(query, (id_ahorro,))
 
 def generar_comprobantes_individuales(id_ahorro):
-    """Generar comprobantes individuales para todos los socios"""
-    st.info("🔧 Funcionalidad en desarrollo - Comprobantes individuales")
+    """Generar comprobantes individuales para todos los socios - FUNCIÓN IMPLEMENTADA"""
+    
+    # Obtener datos de la sesión y socios
+    datos_sesion = ejecutar_consulta("""
+        SELECT s.fecha_sesion, g.nombre_grupo, a.total_ingresos, a.saldo_cierre
+        FROM ahorro a
+        JOIN sesion s ON a.id_sesion = s.id_sesion
+        JOIN grupos g ON s.id_grupo = g.id_grupo
+        WHERE a.id_ahorro = %s
+    """, (id_ahorro,))
+    
+    if not datos_sesion:
+        st.error("❌ No se encontraron datos de la sesión")
+        return
+    
+    sesion = datos_sesion[0]
+    detalles_socios = obtener_estado_ahorros_grupo_por_ahorro(id_ahorro)
+    
+    if not detalles_socios:
+        st.error("❌ No hay datos de socios para generar comprobantes")
+        return
+    
+    st.subheader("🖨️ Comprobantes Individuales de Ahorro")
+    st.markdown(f"**Reunión:** {sesion['nombre_grupo']} - {sesion['fecha_sesion'].strftime('%d/%m/%Y')}")
+    
+    # Generar comprobante para cada socio
+    for socio in detalles_socios:
+        with st.expander(f"Comprobante: {socio['nombre']} {socio['apellido']}"):
+            st.markdown(f"""
+            ### 📄 Comprobante de Ahorro
+            
+            **Grupo:** {sesion['nombre_grupo']}
+            **Fecha:** {sesion['fecha_sesion'].strftime('%d/%m/%Y')}
+            **Socio:** {socio['nombre']} {socio['apellido']}
+            
+            ---
+            
+            **Saldo Anterior:** ${socio['saldo_anterior']:,.2f}
+            **Aporte Actual:** ${socio['aporte_actual']:,.2f}
+            **Otros Ingresos:** ${socio['otros_ingresos']:,.2f}
+            
+            **💵 TOTAL AHORRO ACTUAL:** ${socio['saldo_final']:,.2f}
+            
+            ---
+            
+            *Firma del Tesorero/a:* _________________________
+            
+            *Fecha de emisión:* {datetime.now().strftime('%d/%m/%Y %H:%M')}
+            """)
+            
+            # Opción para descargar comprobante individual
+            comprobante_texto = f"""
+            COMPROBANTE DE AHORRO
+            =====================
+            
+            Grupo: {sesion['nombre_grupo']}
+            Fecha: {sesion['fecha_sesion'].strftime('%d/%m/%Y')}
+            Socio: {socio['nombre']} {socio['apellido']}
+            
+            Saldo Anterior: ${socio['saldo_anterior']:,.2f}
+            Aporte Actual: ${socio['aporte_actual']:,.2f}
+            Otros Ingresos: ${socio['otros_ingresos']:,.2f}
+            
+            TOTAL AHORRO ACTUAL: ${socio['saldo_final']:,.2f}
+            
+            Firma del Tesorero/a: _________________________
+            
+            Fecha de emisión: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+            """
+            
+            st.download_button(
+                label=f"📥 Descargar Comprobante - {socio['nombre']}",
+                data=comprobante_texto,
+                file_name=f"comprobante_ahorro_{socio['nombre']}_{socio['apellido']}_{datetime.now().strftime('%Y%m%d')}.txt",
+                mime="text/plain",
+                key=f"comprobante_{socio['id_socio']}"
+            )
+    
+    # Generar archivo consolidado
+    st.markdown("---")
+    if st.button("📦 Generar Archivo Consolidado de Todos los Comprobantes"):
+        generar_archivo_consolidado_comprobantes(detalles_socios, sesion)
 
 def generar_acta_cierre_ahorro(id_sesion):
-    """Generar acta de cierre de ahorro"""
-    st.info("🔧 Funcionalidad en desarrollo - Acta de cierre")
+    """Generar acta de cierre de ahorro - FUNCIÓN IMPLEMENTADA"""
+    
+    # Obtener datos completos de la sesión
+    datos_sesion = ejecutar_consulta("""
+        SELECT s.fecha_sesion, g.nombre_grupo, a.total_ingresos, a.saldo_cierre,
+               a.firma_tesorera, a.firma_presidenta, a.saldo_apertura
+        FROM sesion s
+        JOIN grupos g ON s.id_grupo = g.id_grupo
+        JOIN ahorro a ON s.id_sesion = a.id_sesion
+        WHERE s.id_sesion = %s
+    """, (id_sesion,))
+    
+    if not datos_sesion:
+        st.error("❌ No se encontraron datos para el acta de cierre")
+        return
+    
+    sesion = datos_sesion[0]
+    detalles_socios = obtener_estado_ahorros_grupo_por_sesion(id_sesion)
+    
+    st.subheader("📄 Acta de Cierre de Caja - Ahorro")
+    
+    # Mostrar previsualización del acta
+    st.markdown(f"""
+    ### ACTA DE CIERRE DE CAJA - AHORRO
+    
+    **Grupo:** {sesion['nombre_grupo']}
+    **Fecha de la reunión:** {sesion['fecha_sesion'].strftime('%d/%m/%Y')}
+    **Fecha de cierre:** {datetime.now().strftime('%d/%m/%Y %H:%M')}
+    
+    ---
+    
+    **RESUMEN FINANCIERO:**
+    
+    - Saldo de Apertura: ${sesion['saldo_apertura']:,.2f}
+    - Total de Ingresos: ${sesion['total_ingresos']:,.2f}
+    - **Saldo de Cierre: ${sesion['saldo_cierre']:,.2f}**
+    
+    ---
+    
+    **DETALLE POR SOCIO:**
+    """)
+    
+    # Tabla de detalle
+    if detalles_socios:
+        df_detalle = pd.DataFrame(detalles_socios)
+        df_detalle_display = df_detalle[['nombre', 'apellido', 'saldo_anterior', 'aporte_actual', 'otros_ingresos', 'saldo_final']]
+        df_detalle_display.columns = ['Nombre', 'Apellido', 'Saldo Anterior', 'Aporte', 'Otros', 'Saldo Final']
+        st.dataframe(df_detalle_display, use_container_width=True)
+    
+    st.markdown(f"""
+    ---
+    
+    **FIRMAS:**
+    
+    Tesorera: {sesion['firma_tesorera'] or "_________________________"}
+    
+    Presidenta: {sesion['firma_presidenta'] or "_________________________"}
+    
+    ---
+    
+    *Este acta certifica que el cierre de caja de ahorro ha sido verificado y aprobado por la directiva del grupo.*
+    """)
+    
+    # Generar archivo del acta
+    acta_texto = f"""
+    ACTA DE CIERRE DE CAJA - AHORRO
+    ================================
+    
+    Grupo: {sesion['nombre_grupo']}
+    Fecha de la reunión: {sesion['fecha_sesion'].strftime('%d/%m/%Y')}
+    Fecha de cierre: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+    
+    RESUMEN FINANCIERO:
+    -------------------
+    Saldo de Apertura: ${sesion['saldo_apertura']:,.2f}
+    Total de Ingresos: ${sesion['total_ingresos']:,.2f}
+    Saldo de Cierre: ${sesion['saldo_cierre']:,.2f}
+    
+    DETALLE POR SOCIO:
+    ------------------
+    """
+    
+    # Agregar detalle de socios
+    for socio in detalles_socios:
+        acta_texto += f"""
+        - {socio['nombre']} {socio['apellido']}:
+          Saldo Anterior: ${socio['saldo_anterior']:,.2f}
+          Aporte: ${socio['aporte_actual']:,.2f}
+          Otros: ${socio['otros_ingresos']:,.2f}
+          Saldo Final: ${socio['saldo_final']:,.2f}
+        """
+    
+    acta_texto += f"""
+    
+    FIRMAS:
+    -------
+    Tesorera: {sesion['firma_tesorera'] or "_________________________"}
+    Presidenta: {sesion['firma_presidenta'] or "_________________________"}
+    
+    Este acta certifica que el cierre de caja de ahorro ha sido verificado y aprobado por la directiva del grupo.
+    """
+    
+    st.download_button(
+        label="📥 Descargar Acta de Cierre Completa",
+        data=acta_texto,
+        file_name=f"acta_cierre_ahorro_{sesion['nombre_grupo']}_{datetime.now().strftime('%Y%m%d')}.txt",
+        mime="text/plain"
+    )
+
+# =============================================================================
+# FUNCIONES ADICIONALES IMPLEMENTADAS
+# =============================================================================
+
+def obtener_estado_ahorros_grupo_por_ahorro(id_ahorro):
+    """Obtener estado de ahorros por ID de ahorro"""
+    query = """
+        SELECT s.id_socio, s.nombre, s.apellido, ad.saldo_ahorro as saldo_anterior, 
+               ad.saldo_ingresado as aporte_actual, ad.otras_actividades as otros_ingresos,
+               ad.saldo_final
+        FROM ahorro_detalle ad
+        JOIN socios s ON ad.id_socio = s.id_socio
+        WHERE ad.id_ahorro = %s
+        ORDER BY s.apellido, s.nombre
+    """
+    return ejecutar_consulta(query, (id_ahorro,))
+
+def obtener_estado_ahorros_grupo_por_sesion(id_sesion):
+    """Obtener estado de ahorros por ID de sesión"""
+    query = """
+        SELECT s.id_socio, s.nombre, s.apellido, ad.saldo_ahorro as saldo_anterior, 
+               ad.saldo_ingresado as aporte_actual, ad.otras_actividades as otros_ingresos,
+               ad.saldo_final
+        FROM ahorro_detalle ad
+        JOIN socios s ON ad.id_socio = s.id_socio
+        JOIN ahorro a ON ad.id_ahorro = a.id_ahorro
+        WHERE a.id_sesion = %s
+        ORDER BY s.apellido, s.nombre
+    """
+    return ejecutar_consulta(query, (id_sesion,))
+
+def generar_archivo_consolidado_comprobantes(detalles_socios, datos_sesion):
+    """Generar archivo consolidado con todos los comprobantes"""
+    
+    contenido_consolidado = f"""
+    COMPROBANTES CONSOLIDADOS DE AHORRO
+    ====================================
+    
+    Grupo: {datos_sesion['nombre_grupo']}
+    Fecha de reunión: {datos_sesion['fecha_sesion'].strftime('%d/%m/%Y')}
+    Fecha de emisión: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+    
+    """
+    
+    for socio in detalles_socios:
+        contenido_consolidado += f"""
+        --- COMPROBANTE INDIVIDUAL ---
+        Socio: {socio['nombre']} {socio['apellido']}
+        Saldo Anterior: ${socio['saldo_anterior']:,.2f}
+        Aporte Actual: ${socio['aporte_actual']:,.2f}
+        Otros Ingresos: ${socio['otros_ingresos']:,.2f}
+        TOTAL AHORRO: ${socio['saldo_final']:,.2f}
+        
+        """
+    
+    contenido_consolidado += f"""
+    RESUMEN GENERAL:
+    ----------------
+    Total Socios: {len(detalles_socios)}
+    Total Ahorro Grupo: ${sum(socio['saldo_final'] for socio in detalles_socios):,.2f}
+    """
+    
+    st.download_button(
+        label="📦 Descargar Archivo Consolidado",
+        data=contenido_consolidado,
+        file_name=f"comprobantes_consolidados_{datos_sesion['nombre_grupo']}_{datetime.now().strftime('%Y%m%d')}.txt",
+        mime="text/plain"
+    )
 
 # Reutilizar funciones de reuniones
 from modules.reuniones import obtener_reuniones_recientes, obtener_total_socios_grupo
