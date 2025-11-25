@@ -68,9 +68,9 @@ def inicializar_bd():
                     "INSERT INTO distrito (id_distrito, nombre_distrito, municipio) VALUES (3, 'Distrito Sur', 'Choluteca')",
                     
                     # Frecuencias
-                    "INSERT INTO frecuencia (id_frecuenca, tipo_frecuencia) VALUES (1, 'Semanal')",
-                    "INSERT INTO frecuencia (id_frecuenca, tipo_frecuencia) VALUES (2, 'Quincenal')",
-                    "INSERT INTO frecuencia (id_frecuenca, tipo_frecuencia) VALUES (3, 'Mensual')",
+                    "INSERT INTO frecuencia (id_frecuencia, tipo_frecuencia) VALUES (1, 'Semanal')",
+                    "INSERT INTO frecuencia (id_frecuencia, tipo_frecuencia) VALUES (2, 'Quincenal')",
+                    "INSERT INTO frecuencia (id_frecuencia, tipo_frecuencia) VALUES (3, 'Mensual')",
                     
                     # Roles de directiva
                     "INSERT INTO roles (id_rol, tipo_rol, funcion) VALUES (1, 'Presidente/a', 'Dirige las reuniones y representa al grupo')",
