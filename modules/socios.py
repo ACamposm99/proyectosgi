@@ -30,8 +30,17 @@ def registrar_socio():
         
         with col2:
             direccion = st.text_input("🏠 Dirección", placeholder="Ej: Colonia Los Pinos, Calle Principal")
-            id_grupo = st.selectbox("🏢 Grupo", obtener_grupos_con_nombres())
-            id_distrito = st.selectbox("🗺️ Distrito", obtener_distritos())
+            
+            # CORREGIDO: Obtener solo el ID de los selectboxes
+            grupos_opciones = obtener_grupos_con_nombres()
+            id_grupo = st.selectbox("🏢 Grupo", 
+                                   options=[g[0] for g in grupos_opciones],
+                                   format_func=lambda x: next((g[1] for g in grupos_opciones if g[0] == x), "Seleccionar"))
+            
+            distritos_opciones = obtener_distritos()
+            id_distrito = st.selectbox("🗺️ Distrito", 
+                                      options=[d[0] for d in distritos_opciones],
+                                      format_func=lambda x: next((d[1] for d in distritos_opciones if d[0] == x), "Seleccionar"))
         
         submitted = st.form_submit_button("💾 Registrar Socio")
         
@@ -61,6 +70,22 @@ def validar_socio(nombre, apellido, telefono):
 def crear_socio(nombre, apellido, telefono, direccion, id_grupo, id_distrito):
     """Crear nuevo socio en la base de datos"""
     
+    # CONVERSIÓN EXPLÍCITA DE TIPOS DE DATOS
+    try:
+        # Asegurar que los IDs sean enteros
+        id_grupo = int(id_grupo) if id_grupo else None
+        id_distrito = int(id_distrito) if id_distrito else None
+        
+        # Asegurar que textos sean strings
+        nombre = str(nombre) if nombre else ""
+        apellido = str(apellido) if apellido else ""
+        telefono = str(telefono) if telefono else ""
+        direccion = str(direccion) if direccion else ""
+        
+    except (ValueError, TypeError) as e:
+        st.error(f"❌ Error en conversión de datos: {e}")
+        return False
+    
     query = """
         INSERT INTO socios (nombre, apellido, telefono, direccion, id_grupo, id_distrito)
         VALUES (%s, %s, %s, %s, %s, %s)
@@ -68,7 +93,13 @@ def crear_socio(nombre, apellido, telefono, direccion, id_grupo, id_distrito):
     
     params = (nombre, apellido, telefono, direccion, id_grupo, id_distrito)
     
+    # DEBUG: Mostrar parámetros
+    st.write("🔍 Parámetros a enviar a la BD:")
+    for i, (param, tipo) in enumerate(zip(params, [type(p) for p in params])):
+        st.write(f"  Parámetro {i}: {param} (tipo: {tipo})")
+    
     return ejecutar_comando(query, params)
+
 
 def crear_usuario_socio(id_socio, nombre, apellido):
     """Crear usuario de acceso para el socio"""
@@ -100,8 +131,9 @@ def listar_socios():
     # Filtros
     col1, col2 = st.columns(2)
     with col1:
-        filtro_grupo = st.selectbox("Filtrar por Grupo", 
-                                  ["Todos"] + [grupo[1] for grupo in obtener_grupos_con_nombres()])
+        grupos_opciones = obtener_grupos_con_nombres()
+        nombres_grupos = [grupo[1] for grupo in grupos_opciones]
+        filtro_grupo = st.selectbox("Filtrar por Grupo", ["Todos"] + nombres_grupos)
     
     # Obtener socios
     if filtro_grupo == "Todos":
