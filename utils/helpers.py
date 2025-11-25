@@ -30,7 +30,7 @@ def mostrar_dashboard_admin():
         st.metric("👥 Total Socios", total_socios[0]['total'] if total_socios else 0)
     
     with col3:
-        total_distritos = obtener_metricas("SELECT COUNT(*) as total FROM distritos")
+        total_distritos = obtener_metricas("SELECT COUNT(*) as total FROM distrito")
         st.metric("🗺️ Distritos", total_distritos[0]['total'] if total_distritos else 0)
     
     with col4:
@@ -42,11 +42,11 @@ def mostrar_dashboard_admin():
     col1, col2, col3 = st.columns(3)  # Reducido a 3 columnas
     
     with col1:
-        total_ahorro = obtener_metricas("SELECT COALESCE(SUM(saldo_actual), 0) as total FROM ahorros")
+        total_ahorro = obtener_metricas("SELECT COALESCE(SUM(saldo_actual), 0) as total FROM ahorro")
         st.metric("💵 Ahorro Total", f"${total_ahorro[0]['total']:,.2f}" if total_ahorro else "$0.00")
     
     with col2:
-        total_prestamos = obtener_metricas("SELECT COALESCE(SUM(saldo_pendiente), 0) as total FROM prestamos WHERE estado = 'VIGENTE'")
+        total_prestamos = obtener_metricas("SELECT COALESCE(SUM(saldo_pendiente), 0) as total FROM prestamo WHERE estado = 'VIGENTE'")
         st.metric("🏦 Préstamos Vigentes", f"${total_prestamos[0]['total']:,.2f}" if total_prestamos else "$0.00")
     
     with col3:
@@ -97,14 +97,14 @@ def mostrar_dashboard_directiva():
     
     with col3:
         ahorro_total = obtener_metricas(
-            "SELECT COALESCE(SUM(saldo_actual), 0) as total FROM ahorros WHERE id_grupo = %s",
+            "SELECT COALESCE(SUM(saldo_actual), 0) as total FROM ahorro WHERE id_grupo = %s",
             (st.session_state.id_grupo,)
         )
         st.metric("💰 Ahorro Total", f"${ahorro_total[0]['total']:,.2f}" if ahorro_total else "$0.00")
     
     with col4:
         prestamos_vigentes = obtener_metricas(
-            "SELECT COUNT(*) as total FROM prestamos WHERE id_grupo = %s AND estado = 'VIGENTE'",
+            "SELECT COUNT(*) as total FROM prestamo WHERE id_grupo = %s AND estado = 'VIGENTE'",
             (st.session_state.id_grupo,)
         )
         st.metric("🏦 Préstamos Activos", prestamos_vigentes[0]['total'] if prestamos_vigentes else 0)
@@ -115,7 +115,7 @@ def mostrar_dashboard_directiva():
     
     with col1:
         total_prestamos = obtener_metricas(
-            "SELECT COALESCE(SUM(saldo_pendiente), 0) as total FROM prestamos WHERE id_grupo = %s AND estado = 'VIGENTE'",
+            "SELECT COALESCE(SUM(saldo_pendiente), 0) as total FROM prestamo WHERE id_grupo = %s AND estado = 'VIGENTE'",
             (st.session_state.id_grupo,)
         )
         st.metric("📈 Préstamos Vigentes", f"${total_prestamos[0]['total']:,.2f}" if total_prestamos else "$0.00")
@@ -195,7 +195,7 @@ def mostrar_dashboard_promotora():
     
     with col4:
         aprobaciones_pendientes = obtener_metricas(
-            """SELECT COUNT(*) as total FROM prestamos p 
+            """SELECT COUNT(*) as total FROM prestamo p 
                JOIN grupos g ON p.id_grupo = g.id_grupo 
                WHERE g.id_promotora = %s AND p.estado = 'PENDIENTE'""",
             (id_promotora,)
@@ -209,14 +209,14 @@ def mostrar_dashboard_promotora():
     
     with col1:
         ahorro_total = obtener_metricas(
-            "SELECT COALESCE(SUM(a.saldo_actual), 0) as total FROM ahorros a JOIN grupos g ON a.id_grupo = g.id_grupo WHERE g.id_promotora = %s",
+            "SELECT COALESCE(SUM(a.saldo_actual), 0) as total FROM ahorro a JOIN grupos g ON a.id_grupo = g.id_grupo WHERE g.id_promotora = %s",
             (id_promotora,)
         )
         st.metric("💵 Ahorro Total", f"${ahorro_total[0]['total']:,.2f}" if ahorro_total else "$0.00")
     
     with col2:
         prestamos_vigentes = obtener_metricas(
-            "SELECT COALESCE(SUM(p.saldo_pendiente), 0) as total FROM prestamos p JOIN grupos g ON p.id_grupo = g.id_grupo WHERE g.id_promotora = %s AND p.estado = 'VIGENTE'",
+            "SELECT COALESCE(SUM(p.saldo_pendiente), 0) as total FROM prestamo p JOIN grupos g ON p.id_grupo = g.id_grupo WHERE g.id_promotora = %s AND p.estado = 'VIGENTE'",
             (id_promotora,)
         )
         st.metric("🏦 Préstamos Vigentes", f"${prestamos_vigentes[0]['total']:,.2f}" if prestamos_vigentes else "$0.00")
@@ -230,7 +230,7 @@ def mostrar_dashboard_promotora():
                   COALESCE(SUM(a.saldo_actual), 0) as total_ahorro
            FROM grupos g 
            LEFT JOIN socios s ON g.id_grupo = s.id_grupo AND s.estado = 'ACTIVO'
-           LEFT JOIN ahorros a ON g.id_grupo = a.id_grupo
+           LEFT JOIN ahorro a ON g.id_grupo = a.id_grupo
            WHERE g.id_promotora = %s AND g.estado = 'ACTIVO'
            GROUP BY g.id_grupo, g.nombre_grupo, g.lugar_reunion, g.fecha_creacion
            ORDER BY g.fecha_creacion DESC""",
