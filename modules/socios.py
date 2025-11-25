@@ -61,10 +61,6 @@ def registrar_socio():
                         st.write(f"**Grupo:** {next((g[1] for g in grupos_opciones if g[0] == id_grupo), 'N/A')}")
                         st.write(f"**Distrito:** {next((d[1] for d in distritos_opciones if d[0] == id_distrito), 'N/A')}")
                         
-                        if ocupacion:
-                            st.write(f"**Ocupación:** {ocupacion}")
-                        if email:
-                            st.write(f"**Email:** {email}")
 
 def validar_socio(nombre, apellido, telefono):
     """Validar datos del socio"""
@@ -86,8 +82,8 @@ def validar_socio(nombre, apellido, telefono):
     
     return True
 
-def crear_socio(nombre, apellido, telefono, direccion, id_grupo, id_distrito, 
-                fecha_nacimiento=None, genero="", ocupacion="", email="", observaciones=""):
+def crear_socio(nombre, apellido, telefono, direccion, id_grupo, id_distrito 
+                ):
     """Crear nuevo socio en la base de datos - FUNCIÓN MEJORADA"""
     
     # CONVERSIÓN EXPLÍCITA DE TIPOS DE DATOS
@@ -101,28 +97,22 @@ def crear_socio(nombre, apellido, telefono, direccion, id_grupo, id_distrito,
         apellido = str(apellido) if apellido else ""
         telefono = str(telefono) if telefono else ""
         direccion = str(direccion) if direccion else ""
-        genero = str(genero) if genero else ""
-        ocupacion = str(ocupacion) if ocupacion else ""
-        email = str(email) if email else ""
-        observaciones = str(observaciones) if observaciones else ""
         
-        # Formatear fecha de nacimiento
-        if fecha_nacimiento and hasattr(fecha_nacimiento, 'strftime'):
-            fecha_nacimiento = fecha_nacimiento.strftime('%Y-%m-%d')
+        
+        
         
     except (ValueError, TypeError) as e:
         st.error(f"❌ Error en conversión de datos: {e}")
         return False
     
     query = """
-        INSERT INTO socios (nombre, apellido, telefono, direccion, id_grupo, id_distrito,
-                          fecha_nacimiento, genero, ocupacion, email, observaciones, fecha_registro)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO socios (nombre, apellido, telefono, direccion, id_grupo, id_distrito
+                          )
+        VALUES (%s, %s, %s, %s, %s, %s)
     """
     
     params = (
         nombre, apellido, telefono, direccion, id_grupo, id_distrito,
-        fecha_nacimiento, genero, ocupacion, email, observaciones, datetime.now()
     )
     
     return ejecutar_comando(query, params)
@@ -165,18 +155,6 @@ def listar_socios():
         with col1:
             st.metric("📊 Total de Socios", total_socios)
         
-        with col2:
-            # Calcular promedio de edad
-            edades = [calcular_edad(socio.get('fecha_nacimiento')) for socio in socios if socio.get('fecha_nacimiento')]
-            promedio_edad = sum(edades) / len(edades) if edades else 0
-            st.metric("📅 Edad Promedio", f"{promedio_edad:.1f} años")
-        
-        with col3:
-            # Contar por género
-            generos = [socio.get('genero', '') for socio in socios]
-            femenino = generos.count('Femenino')
-            masculino = generos.count('Masculino')
-            st.metric("⚧️ Género", f"♀{femenino} ♂{masculino}")
         
         with col4:
             # Socios por grupo
@@ -204,21 +182,12 @@ def listar_socios():
                 with col1:
                     st.write(f"**📞 Teléfono:** {socio['telefono']}")
                     st.write(f"**🏠 Dirección:** {socio['direccion']}")
-                    if socio.get('email'):
-                        st.write(f"**📧 Email:** {socio['email']}")
-                    if socio.get('fecha_nacimiento'):
-                        edad = calcular_edad(socio['fecha_nacimiento'])
-                        st.write(f"**🎂 Edad:** {edad} años")
+                    
                 
                 with col2:
                     st.write(f"**🏢 Grupo:** {socio['nombre_grupo']}")
                     st.write(f"**🗺️ Distrito:** {socio['nombre_distrito']}")
-                    if socio.get('ocupacion'):
-                        st.write(f"**💼 Ocupación:** {socio['ocupacion']}")
-                    if socio.get('genero'):
-                        st.write(f"**⚧️ Género:** {socio['genero']}")
-                    st.write(f"**📅 Fecha Registro:** {socio['fecha_registro'].strftime('%d/%m/%Y')}")
-                
+                    
                 with col3:
                     # Acciones
                     col_edit, col_det, col_del = st.columns(3)
@@ -330,24 +299,8 @@ def editar_socio(id_socio):
                 index=indice_grupo
             )
         
-        with col2:
-            # Campos adicionales
-            if socio.get('fecha_nacimiento'):
-                nueva_fecha_nacimiento = st.date_input(
-                    "🎂 Fecha de Nacimiento", 
-                    value=socio['fecha_nacimiento']
-                )
-            else:
-                nueva_fecha_nacimiento = st.date_input("🎂 Fecha de Nacimiento")
+       
             
-            nuevo_genero = st.selectbox(
-                "⚧️ Género",
-                ["", "Femenino", "Masculino", "Otro", "Prefiero no decir"],
-                index=["", "Femenino", "Masculino", "Otro", "Prefiero no decir"].index(socio.get('genero', ''))
-            )
-            
-            nueva_ocupacion = st.text_input("💼 Ocupación", value=socio.get('ocupacion', ''))
-            nuevo_email = st.text_input("📧 Email", value=socio.get('email', ''))
             
             # Obtener distritos actualizados
             distritos_opciones = obtener_distritos()
@@ -378,8 +331,7 @@ def editar_socio(id_socio):
             if validar_socio(nuevo_nombre, nuevo_apellido, nuevo_telefono):
                 if actualizar_socio(
                     id_socio, nuevo_nombre, nuevo_apellido, nuevo_telefono, nueva_direccion,
-                    nuevo_id_grupo, nuevo_id_distrito, nueva_fecha_nacimiento, nuevo_genero,
-                    nueva_ocupacion, nuevo_email, nuevas_observaciones, nuevo_activo
+                    nuevo_id_grupo, nuevo_id_distrito, nuevo_activo
                 ):
                     st.success("✅ Socio actualizado exitosamente")
                     # Limpiar estado de edición
@@ -390,22 +342,20 @@ def editar_socio(id_socio):
             st.session_state[f'editar_socio_{id_socio}'] = False
             st.rerun()
 
-def actualizar_socio(id_socio, nombre, apellido, telefono, direccion, id_grupo, id_distrito,
-                    fecha_nacimiento=None, genero="", ocupacion="", email="", observaciones="", activo=True):
+def actualizar_socio(id_socio, nombre, apellido, telefono, direccion, id_grupo, id_distrito
+                    ):
     """Actualizar socio en la base de datos"""
     
     query = """
         UPDATE socios 
         SET nombre = %s, apellido = %s, telefono = %s, direccion = %s, 
-            id_grupo = %s, id_distrito = %s, fecha_nacimiento = %s, 
-            genero = %s, ocupacion = %s, email = %s, observaciones = %s, activo = %s
+            id_grupo = %s, id_distrito = %s, activo = %s
         WHERE id_socio = %s
     """
     
     params = (
         str(nombre), str(apellido), str(telefono), str(direccion),
-        int(id_grupo), int(id_distrito), fecha_nacimiento,
-        str(genero), str(ocupacion), str(email), str(observaciones), bool(activo),
+        int(id_grupo), int(id_distrito), bool(activo),
         int(id_socio)
     )
     
@@ -444,25 +394,14 @@ def ver_detalles_socio(id_socio):
         st.write(f"**Teléfono:** {socio['telefono']}")
         st.write(f"**Dirección:** {socio['direccion']}")
         
-        if socio.get('email'):
-            st.write(f"**Email:** {socio['email']}")
+     
+
         
-        if socio.get('fecha_nacimiento'):
-            edad = calcular_edad(socio['fecha_nacimiento'])
-            st.write(f"**Fecha de nacimiento:** {socio['fecha_nacimiento'].strftime('%d/%m/%Y')}")
-            st.write(f"**Edad:** {edad} años")
-        
-        if socio.get('genero'):
-            st.write(f"**Género:** {socio['genero']}")
-        
-        if socio.get('ocupacion'):
-            st.write(f"**Ocupación:** {socio['ocupacion']}")
     
     with col2:
         st.markdown("### 🏢 Información del Grupo")
         st.write(f"**Grupo:** {socio['nombre_grupo']}")
         st.write(f"**Distrito:** {socio['nombre_distrito']}")
-        st.write(f"**Fecha de registro:** {socio['fecha_registro'].strftime('%d/%m/%Y')}")
         st.write(f"**Estado:** {'✅ Activo' if socio.get('activo', True) else '❌ Inactivo'}")
         
         if socio.get('observaciones'):
@@ -587,12 +526,6 @@ def obtener_distritos():
         return [(row['id_distrito'], row['nombre_distrito']) for row in resultado]
     return []
 
-def calcular_edad(fecha_nacimiento):
-    """Calcular edad a partir de la fecha de nacimiento"""
-    if not fecha_nacimiento:
-        return 0
-    hoy = datetime.now().date()
-    return hoy.year - fecha_nacimiento.year - ((hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day))
 
 def obtener_saldo_ahorro_socio(id_socio):
     """Obtener saldo actual de ahorro del socio"""
@@ -620,7 +553,7 @@ def obtener_total_pagado_socio(id_socio):
     """Obtener total pagado en préstamos por el socio"""
     query = """
         SELECT COALESCE(SUM(total_pagado), 0) as total
-        FROM `detalle de pagos` 
+        FROM `detalles_pagos` 
         WHERE id_prestamo IN (SELECT id_prestamo FROM prestamo WHERE id_socio = %s)
     """
     resultado = ejecutar_consulta(query, (id_socio,))
@@ -665,12 +598,8 @@ def exportar_socios_csv(socios):
             'Apellido': socio['apellido'],
             'Teléfono': socio['telefono'],
             'Dirección': socio['direccion'],
-            'Email': socio.get('email', ''),
             'Grupo': socio['nombre_grupo'],
             'Distrito': socio['nombre_distrito'],
-            'Ocupación': socio.get('ocupacion', ''),
-            'Género': socio.get('genero', ''),
-            'Fecha Registro': socio['fecha_registro'].strftime('%d/%m/%Y'),
             'Estado': 'Activo' if socio.get('activo', True) else 'Inactivo'
         })
     

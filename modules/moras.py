@@ -277,7 +277,7 @@ def obtener_prestamos_vencidos(id_grupo):
             (p.monto_solicitado - COALESCE(SUM(dp.capital_pagado), 0)) as saldo_pendiente
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE s.id_grupo = %s
         AND p.id_estado_prestamo = 2  -- Aprobado (no en mora aún)
         AND p.fecha_vencimiento < CURDATE()
@@ -296,7 +296,7 @@ def calcular_multa_mora(id_prestamo, id_grupo):
     """Calcular monto de multa por mora"""
     # Obtener reglas del grupo
     reglas = ejecutar_consulta(
-        "SELECT cantidad_multa FROM reglas_del_grupo WHERE id_grupo = %s",
+        "SELECT cantidad_multa FROM reglas_grupo WHERE id_grupo = %s",
         (id_grupo,)
     )
     
@@ -386,12 +386,12 @@ def obtener_prestamos_en_mora(id_grupo):
             ), 0) as multas_acumuladas,
             (
                 SELECT MAX(fecha_pago) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo AND fecha_pago IS NOT NULL
             ) as ultimo_pago
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE s.id_grupo = %s
         AND p.id_estado_prestamo = 5  -- En mora
         GROUP BY p.id_prestamo
@@ -507,7 +507,7 @@ def crear_plan_pago_mora(id_prestamo):
             s.nombre, s.apellido
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE p.id_prestamo = %s
         GROUP BY p.id_prestamo
     """, (id_prestamo,))
@@ -649,7 +649,7 @@ def obtener_estadisticas_mora(id_grupo):
         SELECT COALESCE(SUM(p.monto_solicitado - COALESCE(SUM(dp.capital_pagado), 0)), 0) as total
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE s.id_grupo = %s AND p.id_estado_prestamo = 5
         GROUP BY p.id_prestamo
     """, (id_grupo,))
@@ -673,7 +673,7 @@ def obtener_estadisticas_mora(id_grupo):
             (p.monto_solicitado - COALESCE(SUM(dp.capital_pagado), 0)) as monto_mora
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE s.id_grupo = %s AND p.id_estado_prestamo = 5
         GROUP BY p.id_prestamo, s.id_socio
         ORDER BY dias_mora DESC

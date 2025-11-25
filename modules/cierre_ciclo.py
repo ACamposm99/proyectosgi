@@ -358,7 +358,7 @@ def verificar_prestamos_pendientes(id_grupo):
             (p.monto_solicitado - COALESCE(SUM(dp.capital_pagado), 0)) as saldo_pendiente
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE s.id_grupo = %s
         AND p.id_estado_prestamo IN (2, 5)  -- Aprobado o En Mora
         GROUP BY p.id_prestamo
@@ -381,7 +381,7 @@ def obtener_info_ciclo_actual(id_grupo):
     """Obtener información del ciclo actual"""
     query = """
         SELECT fecha_inicio_ciclo, fecha_fin_ciclo, duracion_ciclo_meses
-        FROM reglas_del_grupo
+        FROM reglas_grupo
         WHERE id_grupo = %s
     """
     resultado = ejecutar_consulta(query, (id_grupo,))
@@ -423,7 +423,7 @@ def calcular_datos_ciclo(id_grupo):
     # Intereses cobrados
     intereses_cobrados = ejecutar_consulta("""
         SELECT COALESCE(SUM(interes_pagado), 0) as total
-        FROM `detalle de pagos` dp
+        FROM `detalles_pagos` dp
         JOIN prestamo p ON dp.id_prestamo = p.id_prestamo
         JOIN socios s ON p.id_socio = s.id_socio
         WHERE s.id_grupo = %s
@@ -703,7 +703,7 @@ def ejecutar_cierre_definitivo(id_grupo):
     try:
         # 1. Marcar ciclo como cerrado en reglas
         ejecutar_comando("""
-            UPDATE reglas_del_grupo 
+            UPDATE reglas_grupo 
             SET fecha_fin_ciclo = %s 
             WHERE id_grupo = %s
         """, (datetime.now().date(), id_grupo))
@@ -713,7 +713,7 @@ def ejecutar_cierre_definitivo(id_grupo):
         nuevo_ciclo_fin = nuevo_ciclo_inicio + timedelta(days=180)  # 6 meses
         
         ejecutar_comando("""
-            UPDATE reglas_del_grupo 
+            UPDATE reglas_grupo 
             SET fecha_inicio_ciclo = %s, fecha_fin_ciclo = %s 
             WHERE id_grupo = %s
         """, (nuevo_ciclo_inicio, nuevo_ciclo_fin, id_grupo))

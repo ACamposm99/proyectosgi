@@ -1,6 +1,6 @@
 import streamlit as st
 import hashlib
-from modules.database import conectar_bd, ejecutar_consulta
+from modules.database import ejecutar_consulta
 
 def autenticar_usuario(username, password, rol):
     """Autenticar usuario en el sistema"""
@@ -17,7 +17,7 @@ def autenticar_usuario(username, password, rol):
                    COALESCE(g.nombre_grupo, '') as nombre_grupo
             FROM usuarios u
             LEFT JOIN socios s ON u.id_socio = s.id_socio
-            LEFT JOIN promotores p ON u.id_Promotor = p.id_promotor
+            LEFT JOIN promotores p ON u.id_promotor = p.id_promotor
             LEFT JOIN grupos g ON s.id_grupo = g.id_grupo
             WHERE u.username = %s AND u.passwordhash = %s AND u.rol_sistema = %s AND u.activo = 1
         """
@@ -25,27 +25,49 @@ def autenticar_usuario(username, password, rol):
         resultado = ejecutar_consulta(query, (username, password_hash, rol))
         
         if resultado:
-            usuario = resultado[0]
+            usuario = resultado[0]  # Esto es un diccionario, no una tupla
+            
+            # CORRECCIÓN: Acceder por nombres de campos, no por índices
             st.session_state.autenticado = True
-            st.session_state.usuario_id = usuario[0]
-            st.session_state.usuario = usuario[1]
-            st.session_state.rol = usuario[2]
-            st.session_state.id_relacionado = usuario[3]
-            st.session_state.id_grupo = usuario[4]
-            st.session_state.nombre_grupo = usuario[5]
+            st.session_state.usuario_id = usuario['id_usuario']
+            st.session_state.usuario = usuario['username']
+            st.session_state.rol = usuario['rol_sistema']
+            st.session_state.id_relacionado = usuario['id_relacionado']
+            st.session_state.id_grupo = usuario['id_grupo']
+            st.session_state.nombre_grupo = usuario['nombre_grupo']
+            
+            # DEBUG: Mostrar información de sesión (opcional)
+            st.write(f"🔍 DEBUG: Usuario autenticado - {usuario['username']} ({usuario['rol_sistema']})")
+            
             return True
         
         # Usuario admin por defecto (solo para desarrollo)
-        if username == st.secrets["admin"]["username"] and password == st.secrets["admin"]["password"] and rol == "ADMIN":
-            st.session_state.autenticado = True
-            st.session_state.usuario = "admin"
-            st.session_state.rol = "ADMIN"
-            return True
+        # NOTA: Esto solo funciona si tienes secrets configurados
+        try:
+            if (username == st.secrets["admin"]["username"] and 
+                password == st.secrets["admin"]["password"] and 
+                rol == "ADMIN"):
+                st.session_state.autenticado = True
+                st.session_state.usuario = "admin"
+                st.session_state.rol = "ADMIN"
+                st.session_state.usuario_id = 0
+                return True
+        except:
+            # Si no hay secrets configurados, usar valores por defecto
+            if username == "admin" and password == "admin123" and rol == "ADMIN":
+                st.session_state.autenticado = True
+                st.session_state.usuario = "admin"
+                st.session_state.rol = "ADMIN"
+                st.session_state.usuario_id = 0
+                return True
             
         return False
         
     except Exception as e:
-        st.error(f"Error en autenticación: {e}")
+        st.error(f"❌ Error en autenticación: {str(e)}")
+        # Mostrar más detalles para debug
+        import traceback
+        st.error(f"🔍 Detalles del error: {traceback.format_exc()}")
         return False
 
 def mostrar_login():
@@ -61,6 +83,9 @@ def mostrar_login():
             border: 1px solid #ddd;
             border-radius: 10px;
             background-color: #f9f9f9;
+        }
+        .stButton>button {
+            width: 100%;
         }
         </style>
         """,
@@ -93,8 +118,11 @@ def mostrar_login():
     
     # Información de demo (solo en desarrollo)
     with st.expander("ℹ️ Información de Demo"):
-        st.write("**Usuario Admin:** admin / admin123")
-        st.write("**Roles disponibles:** DIRECTIVA, PROMOTORA, ADMIN")
+        st.write("**Credenciales de prueba:**")
+        st.write("- **ADMIN:** usuario: `admin`, contraseña: `admin123`")
+        st.write("- **PROMOTORA:** usuario: `ana`, contraseña: `temp123`")
+        st.write("- **DIRECTIVA:** usuario: `maria`, contraseña: `temp123`")
+        st.write("**Nota:** Estas credenciales deben existir en la base de datos")
 
 def cerrar_sesion():
     """Cerrar sesión del usuario"""

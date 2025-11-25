@@ -159,90 +159,84 @@ def mostrar_dashboard_directiva():
             st.rerun()
 
 def mostrar_dashboard_promotora():
-    """Dashboard para promotoras"""
+    """Dashboard para promotoras - Versión mejorada"""
     
-    # Obtener ID de la promotora desde la sesión
-    if 'id_promotora' not in st.session_state:
-        # Buscar el ID de la promotora basado en el usuario
-        promotora_data = ejecutar_consulta(
-            "SELECT id_promotor FROM promotores WHERE nombre = %s LIMIT 1",
-            (st.session_state.usuario,)
-        )
-        if promotora_data:
-            st.session_state.id_promotora = promotora_data[0]['id_promotor']
-        else:
-            # Si no encuentra por nombre, usar el primer promotor
-            promotora_data = ejecutar_consulta("SELECT id_promotor FROM promotores LIMIT 1")
-            if promotora_data:
-                st.session_state.id_promotora = promotora_data[0]['id_promotor']
-            else:
-                st.error("❌ No se pudo identificar a la promotora")
-                return
+    # Obtener ID de la promotora
+    id_promotora = obtener_id_promotora()
+    if not id_promotora:
+        st.error("❌ No se pudo identificar a la promotora")
+        return
     
-    id_promotora = st.session_state.id_promotora
+    # Métricas generales
+    st.subheader("📈 Mis Métricas")
     
-    # Métricas generales de la promotora
-    st.subheader("📈 Métricas de Supervisión")
-    
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         grupos_asignados = obtener_metricas(
-            "SELECT COUNT(*) as total FROM grupos WHERE id_promotor = %s",
+            "SELECT COUNT(*) as total FROM grupos WHERE id_promotor = %s AND estado = 'ACTIVO'",
             (id_promotora,)
         )
-        st.metric("🏢 Grupos Asignados", grupos_asignados[0]['total'] if grupos_asignados else 0)
+        st.metric("🏢 Grupos Activos", grupos_asignados[0]['total'] if grupos_asignados else 0)
     
     with col2:
         total_socios = obtener_metricas(
-            "SELECT COUNT(*) as total FROM socios s JOIN grupos g ON s.id_grupo = g.id_grupo WHERE g.id_promotor = %s",
+            "SELECT COUNT(*) as total FROM socios s JOIN grupos g ON s.id_grupo = g.id_grupo WHERE g.id_promotor = %s AND s.estado = 'ACTIVO'",
             (id_promotora,)
         )
         st.metric("👥 Total Socios", total_socios[0]['total'] if total_socios else 0)
     
     with col3:
-        reuniones_totales = obtener_metricas(
-            """SELECT COUNT(*) as total FROM sesion s 
-               JOIN grupos g ON s.id_grupo = g.id_grupo 
-               WHERE g.id_promotor = %s""",
-            (id_promotora,)
+        reuniones_pendientes = obtener_metricas(
+            """SELECT COUNT(*) as total FROM grupos 
+               WHERE id_promotor = %s AND estado = 'ACTIVO' 
+               AND id_grupo NOT IN (
+                   SELECT DISTINCT id_grupo FROM sesion 
+                   WHERE fecha_sesion >= %s
+               )""",
+            (id_promotora, datetime.now().date() - timedelta(days=7))
         )
-        st.metric("📅 Reuniones Totales", reuniones_totales[0]['total'] if reuniones_totales else 0)
+        st.metric("📅 Reuniones Pendientes", reuniones_pendientes[0]['total'] if reuniones_pendientes else 0)
+        
+    # Grupos recientemente activos
+    st.subheader("🎯 Mis Grupos")
     
-    # Grupos asignados con detalles básicos
-    st.subheader("🎯 Grupos Asignados")
-    
-    grupos = ejecutar_consulta(
-        """SELECT g.id_grupo, g.nombre_grupo, g.lugar_reunion, g.fecha_creacion,
-                  COUNT(s.id_socio) as total_socios
+    grupos = obtener_metricas(
+        """SELECT g.id_grupo, g.nombre_grupo, g.estado, 
+                  COUNT(s.id_socio) as socios_activos
            FROM grupos g 
-           LEFT JOIN socios s ON g.id_grupo = s.id_grupo
+           LEFT JOIN socios s ON g.id_grupo = s.id_grupo AND s.estado = 'ACTIVO'
            WHERE g.id_promotor = %s
-           GROUP BY g.id_grupo, g.nombre_grupo, g.lugar_reunion, g.fecha_creacion
-           ORDER BY g.fecha_creacion DESC""",
+           GROUP BY g.id_grupo, g.nombre_grupo, g.estado
+           ORDER BY g.fecha_creacion DESC 
+           LIMIT 5""",
         (id_promotora,)
     )
     
     if grupos:
         for grupo in grupos:
-            with st.expander(f"🏢 {grupo['nombre_grupo']} - {grupo['total_socios']} socios"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Lugar reunión:** {grupo['lugar_reunion']}")
-                    st.write(f"**Fecha creación:** {grupo['fecha_creacion'].strftime('%d/%m/%Y')}")
-                
-                with col2:
-                    # Última reunión del grupo
-                    ultima_reunion = obtener_metricas(
-                        "SELECT fecha_sesion FROM sesion WHERE id_grupo = %s ORDER BY fecha_sesion DESC LIMIT 1",
-                        (grupo['id_grupo'],)
-                    )
-                    if ultima_reunion and ultima_reunion[0]['fecha_sesion']:
-                        st.write(f"**Última reunión:** {ultima_reunion[0]['fecha_sesion'].strftime('%d/%m/%Y')}")
-                    else:
-                        st.write("**Última reunión:** Sin reuniones")
+            estado_color = "🟢" if grupo['estado'] == 'ACTIVO' else "🔴"
+            st.write(f"{estado_color} **{grupo['nombre_grupo']}** - {grupo['socios_activos']} socios")
     else:
-        st.info("ℹ️ No hay grupos asignados para supervisión")
+        st.info("ℹ️ No tienes grupos asignados")
+
+def obtener_id_promotora():
+    """Obtener ID de promotora desde la sesión o BD"""
+    if 'id_promotora' in st.session_state:
+        return st.session_state.id_promotora
+    
+    try:
+        resultado = obtener_metricas(
+            "SELECT id_promotor FROM promotores WHERE nombre = %s OR id_promotor IN (SELECT id_promotor FROM usuarios WHERE username = %s)",
+            (st.session_state.usuario, st.session_state.usuario)
+        )
+        if resultado:
+            st.session_state.id_promotora = resultado[0]['id_promotor']
+            return st.session_state.id_promotora
+    except:
+        pass
+    
+    return None
 
 def obtener_metricas(query, params=None):
     """Obtener métricas desde la base de datos"""

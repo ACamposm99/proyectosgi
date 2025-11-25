@@ -3,6 +3,8 @@ from modules.database import ejecutar_consulta, ejecutar_comando
 from datetime import datetime, timedelta
 from utils.calculos_financieros import calcular_cuotas_prestamo, validar_capacidad_pago
 import pandas as pd
+from decimal import Decimal
+
 
 
 def modulo_prestamos():
@@ -387,13 +389,13 @@ def obtener_info_socio(id_socio):
 
 def obtener_tasa_interes_grupo(id_grupo):
     """Obtener tasa de interés del grupo"""
-    query = "SELECT interes FROM reglas_del_grupo WHERE id_grupo = %s"
+    query = "SELECT interes FROM reglas_grupo WHERE id_grupo = %s"
     resultado = ejecutar_consulta(query, (id_grupo,))
     return resultado[0]['interes'] / 100 if resultado else 0.05  # 5% por defecto
 
 def obtener_limite_prestamo_grupo(id_grupo):
     """Obtener límite máximo de préstamo del grupo"""
-    query = "SELECT montomax_prestamo FROM reglas_del_grupo WHERE id_grupo = %s"
+    query = "SELECT montomax_prestamo FROM reglas_grupo WHERE id_grupo = %s"
     resultado = ejecutar_consulta(query, (id_grupo,))
     return resultado[0]['montomax_prestamo'] if resultado else 5000.0
 
@@ -490,7 +492,7 @@ def crear_plan_pagos(id_prestamo):
                r.interes, s.id_grupo
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio
-        JOIN reglas_del_grupo r ON s.id_grupo = r.id_grupo
+        JOIN reglas_grupo r ON s.id_grupo = r.id_grupo
         WHERE p.id_prestamo = %s
     """, (id_prestamo,))
     
@@ -512,7 +514,7 @@ def crear_plan_pagos(id_prestamo):
         fecha_pago = fecha_inicio + timedelta(days=30 * (i + 1))
         
         query = """
-            INSERT INTO `detalle de pagos` (
+            INSERT INTO `detalles_pagos` (
                 id_prestamo, fecha_programada, capital_programado,
                 interes_programado, total_programado, cuota_mensual
             ) VALUES (%s, %s, %s, %s, %s, %s)
@@ -548,29 +550,29 @@ def obtener_prestamos_activos_grupo(id_grupo):
             p.plazo_meses,
             COALESCE((
                 SELECT SUM(capital_pagado) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo
             ), 0) as capital_pagado,
             (p.monto_solicitado - COALESCE((
                 SELECT SUM(capital_pagado) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo
             ), 0)) as saldo_actual,
             COALESCE((
                 SELECT cuota_mensual 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo 
                 ORDER BY fecha_programada DESC 
                 LIMIT 1
             ), p.monto_solicitado / p.plazo_meses) as cuota_mensual,
             COALESCE((
                 SELECT MIN(fecha_programada) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo AND fecha_pago IS NULL
             ), p.fecha_desembolso + INTERVAL 1 MONTH) as proximo_pago,
             GREATEST(0, DATEDIFF(CURDATE(), COALESCE((
                 SELECT MIN(fecha_programada) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo AND fecha_pago IS NULL
             ), p.fecha_desembolso + INTERVAL 1 MONTH))) as dias_mora
         FROM prestamo p
@@ -624,17 +626,17 @@ def obtener_historial_prestamos(id_grupo, estado, fecha_inicio, fecha_fin):
             p.proposito,
             COALESCE((
                 SELECT SUM(capital_pagado) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo
             ), 0) as capital_pagado,
             (p.monto_solicitado - COALESCE((
                 SELECT SUM(capital_pagado) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo
             ), 0)) as saldo_pendiente,
             COALESCE((
                 SELECT COUNT(*) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo AND fecha_pago IS NOT NULL
             ), 0) as pagos_realizados
         FROM prestamo p
@@ -676,7 +678,7 @@ def mostrar_detalle_prestamo(id_prestamo):
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio
         JOIN estado_del_prestamo ep ON p.id_estado_prestamo = ep.id_estadoprestamo
-        JOIN reglas_del_grupo r ON s.id_grupo = r.id_grupo
+        JOIN reglas_grupo r ON s.id_grupo = r.id_grupo
         WHERE p.id_prestamo = %s
     """, (id_prestamo,))
     
@@ -743,7 +745,7 @@ def mostrar_detalle_prestamo(id_prestamo):
                 WHEN fecha_pago > fecha_programada THEN 'En mora'
                 ELSE 'Al día'
             END as estado_pago
-        FROM `detalle de pagos`
+        FROM `detalles_pagos`
         WHERE id_prestamo = %s
         ORDER BY fecha_programada
     """, (id_prestamo,))
@@ -821,8 +823,8 @@ def refinanciar_prestamo(id_prestamo):
             r.interes as tasa_interes_actual
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio
-        JOIN reglas_del_grupo r ON s.id_grupo = r.id_grupo
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        JOIN reglas_grupo r ON s.id_grupo = r.id_grupo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE p.id_prestamo = %s
         GROUP BY p.id_prestamo
     """, (id_prestamo,))

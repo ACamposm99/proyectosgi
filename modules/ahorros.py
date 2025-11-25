@@ -1,6 +1,8 @@
 import streamlit as st
 from modules.database import ejecutar_consulta, ejecutar_comando
 from datetime import datetime
+from modules.reuniones import obtener_reuniones_recientes, obtener_total_socios_grupo
+from decimal import Decimal
 import pandas as pd
 import tempfile
 import os
@@ -74,7 +76,7 @@ def registrar_aportes():
     st.markdown("#### Aportes Individuales")
     st.caption("Ingrese los montos de aporte para cada socio presente")
     
-    total_ingresos = 0
+    total_ingresos = Decimal('0.0')
     aportes_registrados = {}
     
     with st.form("form_aportes_ahorro"):
@@ -107,16 +109,21 @@ def registrar_aportes():
                     key=f"otros_{socio['id_socio']}"
                 )
             
+            # Convertir a Decimal para evitar problemas de tipo
+            aporte_ahorro_decimal = Decimal(str(aporte_ahorro))
+            otros_ingresos_decimal = Decimal(str(otros_ingresos))
+            saldo_actual_decimal = Decimal(str(socio['saldo_actual']))
+            
             # Calcular total para este socio
-            total_socio = aporte_ahorro + otros_ingresos
-            saldo_final = socio['saldo_actual'] + total_socio
+            total_socio = aporte_ahorro_decimal + otros_ingresos_decimal
+            saldo_final = saldo_actual_decimal + total_socio
             total_ingresos += total_socio
             
             # Guardar datos para procesar después
             aportes_registrados[socio['id_socio']] = {
-                'aporte_ahorro': aporte_ahorro,
-                'otros_ingresos': otros_ingresos,
-                'saldo_anterior': socio['saldo_actual'],
+                'aporte_ahorro': aporte_ahorro_decimal,
+                'otros_ingresos': otros_ingresos_decimal,
+                'saldo_anterior': saldo_actual_decimal,
                 'saldo_final': saldo_final
             }
         
@@ -125,17 +132,17 @@ def registrar_aportes():
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.metric("💰 Total de Ingresos", f"${total_ingresos:,.2f}")
+            st.metric("💰 Total de Ingresos", f"${float(total_ingresos):,.2f}")
         
         with col2:
-            saldo_actual = obtener_ultimo_saldo_cierre(st.session_state.id_grupo)
-            st.metric("📊 Saldo Actual", f"${saldo_actual:,.2f}")
+            saldo_actual = Decimal(str(obtener_ultimo_saldo_cierre(st.session_state.id_grupo)))
+            st.metric("📊 Saldo Actual", f"${float(saldo_actual):,.2f}")
         
         with col3:
             saldo_proyectado = saldo_actual + total_ingresos
-            st.metric("🎯 Saldo Proyectado", f"${saldo_proyectado:,.2f}")
+            st.metric("🎯 Saldo Proyectado", f"${float(saldo_proyectado):,.2f}")
         
-        # Botón para guardar
+        # Botón para guardar - CORREGIDO: usar st.form_submit_button correctamente
         submitted = st.form_submit_button("💾 Guardar Todos los Aportes")
         
         if submitted:
@@ -144,14 +151,15 @@ def registrar_aportes():
                 for id_socio, datos in aportes_registrados.items():
                     if datos['aporte_ahorro'] > 0 or datos['otros_ingresos'] > 0:
                         guardar_aporte_individual(
-                            id_socio, id_ahorro, datos['saldo_anterior'],
-                            datos['aporte_ahorro'], datos['otros_ingresos'], datos['saldo_final']
+                            id_socio, id_ahorro, float(datos['saldo_anterior']),
+                            float(datos['aporte_ahorro']), float(datos['otros_ingresos']), float(datos['saldo_final'])
                         )
                 
                 # Actualizar totales en registro de ahorro
-                actualizar_totales_ahorro(id_ahorro, total_ingresos, saldo_proyectado)
+                actualizar_totales_ahorro(id_ahorro, float(total_ingresos), float(saldo_proyectado))
                 
                 st.success("✅ Todos los aportes han sido guardados exitosamente")
+                st.rerun()
                 
                 # Generar comprobantes opcionales
                 if st.checkbox("🖨️ Generar comprobantes individuales"):
@@ -190,10 +198,10 @@ def cierre_caja_ahorro():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric("💰 Total Ingresos", f"${sesion['total_ingresos']:,.2f}")
+        st.metric("💰 Total Ingresos", f"${float(sesion['total_ingresos']):,.2f}")
     
     with col2:
-        st.metric("🏦 Saldo Cierre", f"${sesion['saldo_cierre']:,.2f}")
+        st.metric("🏦 Saldo Cierre", f"${float(sesion['saldo_cierre']):,.2f}")
     
     with col3:
         total_socios = obtener_total_socios_grupo(st.session_state.id_grupo)
@@ -215,10 +223,14 @@ def cierre_caja_ahorro():
         st.markdown("### Verificación de Cierre")
         verificado = st.checkbox("✅ Confirmo que los montos han sido verificados y son correctos")
         
-        if st.form_submit_button("🔒 Cerrar Caja de Ahorro"):
+        # CORREGIDO: Botón de envío dentro del formulario
+        submit_cierre = st.form_submit_button("🔒 Cerrar Caja de Ahorro")
+        
+        if submit_cierre:
             if firma_tesorera and firma_presidenta and verificado:
                 if actualizar_firmas_ahorro(sesion['id_sesion'], firma_tesorera, firma_presidenta):
                     st.success("🎉 Caja de ahorro cerrada exitosamente con firmas")
+                    st.rerun()
                     
                     # Generar acta de cierre
                     if st.button("📄 Generar Acta de Cierre"):
@@ -305,7 +317,7 @@ def obtener_ultimo_saldo_cierre(id_grupo):
     """
     
     resultado = ejecutar_consulta(query, (id_grupo,))
-    return resultado[0]['saldo_cierre'] if resultado else 0
+    return Decimal(str(resultado[0]['saldo_cierre'])) if resultado else Decimal('0.0')
 
 def crear_registro_ahorro(id_sesion, saldo_apertura):
     """Crear registro inicial de ahorro para una sesión"""
@@ -331,7 +343,7 @@ def obtener_socios_con_saldo_actual(id_grupo, id_ahorro):
             SELECT saldo_final 
             FROM ahorro_detalle 
             WHERE id_socio = %s 
-            ORDER BY id_ahorrodetalle DESC 
+            ORDER BY id_ahorro_detalle DESC 
             LIMIT 1
         """, (socio['id_socio'],))
         
@@ -356,7 +368,7 @@ def guardar_aporte_individual(id_socio, id_ahorro, saldo_anterior, aporte_ahorro
     
     # Verificar si ya existe registro
     existe = ejecutar_consulta(
-        "SELECT id_ahorrodetalle FROM ahorro_detalle WHERE id_socio = %s AND id_ahorro = %s",
+        "SELECT id_ahorro_detalle FROM ahorro_detalle WHERE id_socio = %s AND id_ahorro = %s",
         (id_socio, id_ahorro)
     )
     

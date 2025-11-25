@@ -77,7 +77,7 @@ def validar_capacidad_pago(id_socio, monto_solicitado, plazo_meses, id_grupo):
                 FROM (
                     SELECT 
                         (capital_pagado + interes_pagado) as cuota_mensual
-                    FROM `detalle de pagos` dp
+                    FROM `detalles_pagos` dp
                     JOIN prestamo p ON dp.id_prestamo = p.id_prestamo
                     WHERE p.id_socio = s.id_socio 
                     AND p.id_estado_prestamo IN (2, 5)
@@ -111,7 +111,7 @@ def validar_capacidad_pago(id_socio, monto_solicitado, plazo_meses, id_grupo):
     
     # Regla 2: No más de un préstamo activo si la regla del grupo lo establece
     reglas_grupo = ejecutar_consulta(
-        "SELECT unprestamo_alavez FROM reglas_del_grupo WHERE id_grupo = %s",
+        "SELECT unprestamo_alavez FROM reglas_grupo WHERE id_grupo = %s",
         (id_grupo,)
     )
     
@@ -138,7 +138,7 @@ def validar_capacidad_pago(id_socio, monto_solicitado, plazo_meses, id_grupo):
 
 def obtener_tasa_interes_grupo(id_grupo):
     """Obtener tasa de interés del grupo"""
-    query = "SELECT interes FROM reglas_del_grupo WHERE id_grupo = %s"
+    query = "SELECT interes FROM reglas_grupo WHERE id_grupo = %s"
     resultado = ejecutar_consulta(query, (id_grupo,))
     return resultado[0]['interes'] / 100 if resultado else 0.05  # 5% por defecto
 
@@ -159,7 +159,7 @@ def simular_refinanciamiento(id_prestamo, nuevo_plazo):
             (monto_solicitado - COALESCE(SUM(capital_pagado), 0)) as saldo_actual,
             interes
         FROM prestamo p
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE p.id_prestamo = %s
         GROUP BY p.id_prestamo
     """

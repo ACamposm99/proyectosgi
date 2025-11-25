@@ -264,17 +264,17 @@ def obtener_info_prestamo(id_prestamo):
             p.plazo_meses,
             (p.monto_solicitado - COALESCE((
                 SELECT SUM(capital_pagado) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo
             ), 0)) as saldo_pendiente,
             COALESCE((
                 SELECT MIN(fecha_programada) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo AND fecha_pago IS NULL
             ), p.fecha_desembolso + INTERVAL 1 MONTH) as proximo_pago,
             COALESCE((
                 SELECT (capital_pagado + interes_pagado) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo 
                 ORDER BY fecha_programada ASC 
                 LIMIT 1
@@ -296,7 +296,7 @@ def obtener_cuotas_pendientes(id_prestamo):
             interes_pagado as interes,
             (capital_pagado + interes_pagado) as total,
             ROW_NUMBER() OVER (ORDER BY fecha_programada) as numero_cuota
-        FROM `detalle de pagos`
+        FROM `detalles_pagos`
         WHERE id_prestamo = %s AND fecha_pago IS NULL
         ORDER BY fecha_programada ASC
     """
@@ -305,7 +305,7 @@ def obtener_cuotas_pendientes(id_prestamo):
 def procesar_pago_cuota(id_pago, info_prestamo):
     """Procesar pago de una cuota específica"""
     query = """
-        UPDATE `detalle de pagos` 
+        UPDATE `detalles_pagos` 
         SET fecha_pago = %s, total_pagado = (capital_pagado + interes_pagado)
         WHERE id_pago = %s
     """
@@ -339,7 +339,7 @@ def registrar_pago_manual(id_prestamo, monto_pago, tipo_pago, fecha_pago, observ
         capital_pagado = monto_pago * 0.8  # Ajuste si el monto es menor
     
     query = """
-        INSERT INTO `detalle de pagos` (
+        INSERT INTO `detalles_pagos` (
             id_socio, fecha_programada, capital_pagado, interes_pagado,
             id_prestamo, interes, fecha_pago, total_pagado, observaciones
         ) VALUES (
@@ -370,7 +370,7 @@ def registrar_movimiento_caja_pago(id_prestamo):
     # Obtener información del pago
     pago_info = ejecutar_consulta("""
         SELECT SUM(total_pagado) as total 
-        FROM `detalle de pagos` 
+        FROM `detalles_pagos` 
         WHERE id_prestamo = %s AND fecha_pago = CURDATE()
     """, (id_prestamo,))
     
@@ -397,7 +397,7 @@ def verificar_prestamo_pagado(id_prestamo):
     saldo_pendiente = ejecutar_consulta("""
         SELECT (monto_solicitado - COALESCE(SUM(capital_pagado), 0)) as saldo
         FROM prestamo p
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE p.id_prestamo = %s
     """, (id_prestamo,))[0]['saldo']
     
@@ -422,7 +422,7 @@ def obtener_historial_pagos_grupo(id_grupo, fecha_inicio, fecha_fin):
             dp.interes_pagado,
             dp.total_pagado,
             dp.observaciones
-        FROM `detalle de pagos` dp
+        FROM `detalles_pagos` dp
         JOIN prestamo p ON dp.id_prestamo = p.id_prestamo
         JOIN socios s ON p.id_socio = s.id_socio
         WHERE s.id_grupo = %s
@@ -462,23 +462,23 @@ def obtener_estado_cuenta_socio(id_socio):
             (monto_solicitado - COALESCE(SUM(capital_pagado), 0)) as saldo_actual,
             COALESCE((
                 SELECT (capital_pagado + interes_pagado) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo 
                 ORDER BY fecha_programada ASC 
                 LIMIT 1
             ), monto_solicitado / plazo_meses) as cuota_mensual,
             COALESCE((
                 SELECT MIN(fecha_programada) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo AND fecha_pago IS NULL
             ), fecha_desembolso + INTERVAL 1 MONTH) as proximo_pago,
             GREATEST(0, DATEDIFF(CURDATE(), COALESCE((
                 SELECT MIN(fecha_programada) 
-                FROM `detalle de pagos` 
+                FROM `detalles_pagos` 
                 WHERE id_prestamo = p.id_prestamo AND fecha_pago IS NULL
             ), fecha_desembolso + INTERVAL 1 MONTH))) as dias_mora
         FROM prestamo p
-        LEFT JOIN `detalle de pagos` dp ON p.id_prestamo = dp.id_prestamo
+        LEFT JOIN `detalles_pagos` dp ON p.id_prestamo = dp.id_prestamo
         WHERE p.id_socio = %s AND p.id_estado_prestamo IN (2, 5)
         GROUP BY p.id_prestamo
     """, (id_socio,))
@@ -490,7 +490,7 @@ def obtener_estado_cuenta_socio(id_socio):
     for prestamo in prestamos:
         ultimos_pagos = ejecutar_consulta("""
             SELECT fecha_pago, total_pagado
-            FROM `detalle de pagos`
+            FROM `detalles_pagos`
             WHERE id_prestamo = %s AND fecha_pago IS NOT NULL
             ORDER BY fecha_pago DESC
             LIMIT 5

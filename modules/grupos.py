@@ -488,7 +488,7 @@ def asignar_directiva(id_socio, id_grupo, id_rol, fecha_inicio, fecha_fin, id_es
 
 def obtener_reglas_grupo(id_grupo):
     """Obtener reglas actuales del grupo"""
-    resultado = ejecutar_consulta("SELECT * FROM reglas_del_grupo WHERE id_grupo = %s", (id_grupo,))
+    resultado = ejecutar_consulta("SELECT * FROM reglas_grupo WHERE id_grupo = %s", (id_grupo,))
     if resultado:
         return resultado[0]  # Devolver el primer registro
     return None
@@ -506,7 +506,7 @@ def guardar_reglas_grupo(id_grupo, cantidad_multa, interes, monto_max_prestamo,
         
         if reglas_existentes:
             query = """
-                UPDATE reglas_del_grupo 
+                UPDATE reglas_grupo 
                 SET cantidad_multa = %s, interes = %s, montomax_prestamo = %s, 
                     unprestamo_alavez = %s, fecha_inicio_ciclo = %s, 
                     fecha_fin_ciclo = %s, duracion_ciclo_meses = %s
@@ -524,7 +524,7 @@ def guardar_reglas_grupo(id_grupo, cantidad_multa, interes, monto_max_prestamo,
             )
         else:
             query = """
-                INSERT INTO reglas_del_grupo (id_grupo, cantidad_multa, interes, montomax_prestamo,
+                INSERT INTO reglas_grupo (id_grupo, cantidad_multa, interes, montomax_prestamo,
                                             unprestamo_alavez, fecha_inicio_ciclo, fecha_fin_ciclo,
                                             duracion_ciclo_meses)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)

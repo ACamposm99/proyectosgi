@@ -355,8 +355,8 @@ def obtener_datos_prestamo(id_prestamo):
             p.plazo_meses,
             p.fecha_aprobacion,
             p.fecha_vencimiento,
-            (p.monto_solicitado * (SELECT interes FROM reglas_del_grupo WHERE id_grupo = s.id_grupo) / 100) as interes_anual,
-            (p.monto_solicitado + (p.monto_solicitado * (SELECT interes FROM reglas_del_grupo WHERE id_grupo = s.id_grupo) / 100)) as total_pagar,
+            (p.monto_solicitado * (SELECT interes FROM reglas_grupo WHERE id_grupo = s.id_grupo) / 100) as interes_anual,
+            (p.monto_solicitado + (p.monto_solicitado * (SELECT interes FROM reglas_grupo WHERE id_grupo = s.id_grupo) / 100)) as total_pagar,
             g.nombre_grupo
         FROM prestamo p
         JOIN socios s ON p.id_socio = s.id_socio

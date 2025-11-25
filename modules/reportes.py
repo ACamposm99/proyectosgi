@@ -388,7 +388,7 @@ def obtener_intereses_cobrados():
     
     query = """
         SELECT COALESCE(SUM(interes_pagado), 0) as total
-        FROM `detalle de pagos` dp
+        FROM `detalles_pagos` dp
         JOIN prestamo p ON dp.id_prestamo = p.id_prestamo
         JOIN socios s ON p.id_socio = s.id_socio
         WHERE s.id_grupo = %s
@@ -547,7 +547,7 @@ def obtener_info_ciclo_actual(id_grupo):
     """Obtener información del ciclo actual"""
     query = """
         SELECT fecha_inicio_ciclo, fecha_fin_ciclo
-        FROM reglas_del_grupo
+        FROM reglas_grupo
         WHERE id_grupo = %s
     """
     resultado = ejecutar_consulta(query, (id_grupo,))
