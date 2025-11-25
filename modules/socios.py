@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 
 def modulo_afiliacion_socios():
-    """Módulo principal para la gestión de socios"""
+    """Módulo principal para la gestión     de socios"""
     
     st.header("👥 Gestión de Socios")
     
@@ -43,39 +43,12 @@ def registrar_socio():
                                       options=[d[0] for d in distritos_opciones],
                                       format_func=lambda x: next((d[1] for d in distritos_opciones if d[0] == x), "Seleccionar"))
         
-        # Campos adicionales para información más completa
-        st.markdown("### 📝 Información Adicional")
-        col_info1, col_info2 = st.columns(2)
-        
-        with col_info1:
-            fecha_nacimiento = st.date_input(
-                "🎂 Fecha de Nacimiento", 
-                min_value=datetime(1920, 1, 1),
-                max_value=datetime.now(),
-                value=datetime(1990, 1, 1)
-            )
-            
-            genero = st.selectbox(
-                "⚧️ Género",
-                ["", "Femenino", "Masculino", "Otro", "Prefiero no decir"]
-            )
-        
-        with col_info2:
-            ocupacion = st.text_input("💼 Ocupación", placeholder="Ej: Comerciante, Ama de casa, Estudiante...")
-            email = st.text_input("📧 Email (opcional)", placeholder="Ej: maria.garcia@email.com")
-        
-        observaciones = st.text_area(
-            "📋 Observaciones", 
-            placeholder="Información adicional relevante sobre el socio..."
-        )
-        
         submitted = st.form_submit_button("💾 Registrar Socio")
         
         if submitted:
             if validar_socio(nombre, apellido, telefono):
                 id_socio = crear_socio(
-                    nombre, apellido, telefono, direccion, id_grupo, id_distrito,
-                    fecha_nacimiento, genero, ocupacion, email, observaciones
+                    nombre, apellido, telefono, direccion, id_grupo, id_distrito
                 )
                 if id_socio:
                     st.success(f"✅ Socio '{nombre} {apellido}' registrado exitosamente (ID: {id_socio})")

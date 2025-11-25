@@ -2,8 +2,7 @@ import streamlit as st
 from modules.database import ejecutar_consulta
 from datetime import datetime, timedelta
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
+
 
 def modulo_reportes():
     """Módulo principal de reportes ejecutivos"""

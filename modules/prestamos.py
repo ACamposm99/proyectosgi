@@ -3,8 +3,7 @@ from modules.database import ejecutar_consulta, ejecutar_comando
 from datetime import datetime, timedelta
 from utils.calculos_financieros import calcular_cuotas_prestamo, validar_capacidad_pago
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
+
 
 def modulo_prestamos():
     """Módulo principal para gestión de préstamos"""

@@ -2,8 +2,7 @@ import streamlit as st
 from modules.database import ejecutar_consulta, ejecutar_comando
 from datetime import datetime, timedelta
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
+
 
 def modulo_reuniones():
     """Módulo principal para gestión de reuniones y asistencia"""

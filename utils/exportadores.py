@@ -3,10 +3,6 @@ import pandas as pd
 from datetime import datetime
 import io
 import base64
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
 import json
 
 def generar_pdf_acta(tipo_acta, datos):
