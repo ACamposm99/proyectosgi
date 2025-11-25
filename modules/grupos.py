@@ -194,10 +194,24 @@ def obtener_frecuencias():
 
 def obtener_promotores():
     """Obtener lista de promotores"""
-    resultado = ejecutar_consulta("SELECT id_promotor, CONCAT(nombre, ' ', apellido) as nombre FROM promotores")
-    if resultado:
-        return [(row['id_promotor'], row['nombre']) for row in resultado]
-    return [(1, "Promotor Demo")]  # Para desarrollo
+    try:
+        resultado = ejecutar_consulta("""
+            SELECT id_promotor, CONCAT(nombre, ' ', apellido) as nombre 
+            FROM promotores 
+            WHERE activo = 1
+        """)
+        
+        if resultado:
+            return [(row['id_promotor'], row['nombre']) for row in resultado]
+        else:
+            # Si no hay promotores, crear uno por defecto
+            crear_promotor_por_defecto()
+            return [(1, "Promotor Demo")]
+            
+    except Exception as e:
+        st.error(f"Error al obtener promotores: {e}")
+        return [(1, "Promotor Demo")]
+    
 
 def obtener_grupos_con_nombres():
     """Obtener grupos con formato para selectbox"""

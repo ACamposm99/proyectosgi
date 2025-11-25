@@ -13,6 +13,8 @@ from modules.cierre_ciclo import modulo_cierre_ciclo  # NUEVO
 from modules.reportes import modulo_reportes          # NUEVO
 from modules.actas import modulo_actas                # NUEVO
 from utils.helpers import mostrar_dashboard_principal
+from modules.admin import modulo_gestion_promotores
+
 
 def main():
     # Configuración de la página
@@ -117,6 +119,8 @@ def mostrar_aplicacion_principal():
         modulo_pagos()
     elif seleccion == "⚠️ Control de Moras":
         modulo_moras()
+    elif seleccion == "👤 Gestión de Promotores":
+        modulo_gestion_promotores()
     elif seleccion == "🔚 Cierre de Ciclo":
         modulo_cierre_ciclo()
     elif "Reportes" in seleccion or "Analytics" in seleccion or "Consolidados" in seleccion:
