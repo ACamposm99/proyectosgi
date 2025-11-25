@@ -187,9 +187,9 @@ def obtener_distritos():
 
 def obtener_frecuencias():
     """Obtener lista de frecuencias"""
-    resultado = ejecutar_consulta("SELECT `id_frecuenca`, `tipo_frecuencia` FROM `frecuencia`")
+    resultado = ejecutar_consulta("SELECT `id_frecuencia`, `tipo_frecuencia` FROM `frecuencia`")
     if resultado:
-        return [(row['id_frecuenca'], row['tipo_frecuencia']) for row in resultado]
+        return [(row['id_frecuencia'], row['tipo_frecuencia']) for row in resultado]
     return []
 
 def obtener_promotores():
